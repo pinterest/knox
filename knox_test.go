@@ -240,14 +240,17 @@ func TestACLAdd(t *testing.T) {
 
 }
 func TestAccessTypeCanAccess(t *testing.T) {
-	if Read.CanAccess(Admin) || Read.CanAccess(Write) || !Read.CanAccess(Read) {
+	if Read.CanAccess(Admin) || Read.CanAccess(Write) || !Read.CanAccess(Read) || !Read.CanAccess(None) {
 		t.Error("Read has incorrect access")
 	}
-	if Write.CanAccess(Admin) || !Write.CanAccess(Write) || !Write.CanAccess(Read) {
+	if Write.CanAccess(Admin) || !Write.CanAccess(Write) || !Write.CanAccess(Read) || !Write.CanAccess(None) {
 		t.Error("Write has incorrect access")
 	}
-	if !Admin.CanAccess(Admin) || !Admin.CanAccess(Write) || !Admin.CanAccess(Read) {
+	if !Admin.CanAccess(Admin) || !Admin.CanAccess(Write) || !Admin.CanAccess(Read) || !Admin.CanAccess(None) {
 		t.Error("Admin has incorrect access")
+	}
+	if None.CanAccess(Admin) || None.CanAccess(Write) || None.CanAccess(Read) || !None.CanAccess(None) {
+		t.Error("None has incorrect access")
 	}
 }
 

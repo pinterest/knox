@@ -134,14 +134,14 @@ func (s PrincipalType) MarshalJSON() ([]byte, error) {
 type AccessType int
 
 const (
+	// None denotes no access.
+	None AccessType = iota
 	// Read denotes the ability to read key data.
-	Read AccessType = iota
+	Read
 	// Write denotes the ability to add key versions and perform rotation.
 	Write
 	// Admin denotes the ability to delete the key and modify the ACL.
 	Admin
-	// None denotes no access.
-	None
 )
 
 // UnmarshalJSON parses JSON input to set an AccessType.

@@ -118,6 +118,10 @@ type APIClient interface {
 	NetworkGetKey(keyID string) (*Key, error)
 }
 
+type HTTP interface {
+	Do(req *http.Request) (*http.Response, error)
+}
+
 // HTTPClient is a client that uses HTTP to talk to Knox.
 type HTTPClient struct {
 	// Host is used as the host for http connections
@@ -126,17 +130,15 @@ type HTTPClient struct {
 	AuthHandler func() string
 	// KeyFolder is the location of cached keys on the file system. If empty, does not check for cached keys.
 	KeyFolder string
-	// TLSConfig is the TLS configuration to use for the HTTP client
-	TLSConfig *tls.Config
-
-	client *http.Client
+	// Client is the http client for making network calls
+	Client HTTP
 }
 
 // NewClient creates a new client to connect to talk to Knox.
-func NewClient(host string, tlsConfig *tls.Config, authHandler func() string, keyFolder string) APIClient {
+func NewClient(host string, client HTTP, authHandler func() string, keyFolder string) APIClient {
 	return &HTTPClient{
 		Host:        host,
-		TLSConfig:   tlsConfig,
+		Client:      client,
 		AuthHandler: authHandler,
 		KeyFolder:   keyFolder,
 	}
@@ -243,17 +245,11 @@ func (c *HTTPClient) UpdateVersion(keyID, versionID string, status VersionStatus
 	return err
 }
 
-func (c *HTTPClient) getClient() (*http.Client, error) {
-	if c.client != nil {
-		return c.client, nil
+func (c *HTTPClient) getClient() (HTTP, error) {
+	if c.Client == nil {
+		c.Client = &http.Client{}
 	}
-
-	tr := &http.Transport{
-		TLSClientConfig: c.TLSConfig,
-	}
-
-	c.client = &http.Client{Transport: tr}
-	return c.client, nil
+	return c.Client, nil
 }
 
 func (c *HTTPClient) getHTTPData(method string, path string, body url.Values, data interface{}) error {
@@ -305,6 +301,6 @@ func MockClient(host string) *HTTPClient {
 			return "TESTAUTH"
 		},
 		KeyFolder: "",
-		TLSConfig: &tls.Config{InsecureSkipVerify: true},
+		Client:    &http.Client{Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}},
 	}
 }

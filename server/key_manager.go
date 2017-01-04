@@ -126,6 +126,9 @@ func (m *keyManager) AddVersion(id string, v *knox.KeyVersion) error {
 		return err
 	}
 	encV, err := m.cryptor.EncryptVersion(k, v)
+	if err != nil {
+		return err
+	}
 
 	newEncK := encK.Copy()
 	newEncK.VersionList = append(newEncK.VersionList, *encV)

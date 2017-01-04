@@ -177,8 +177,9 @@ func (d *daemon) update() error {
 			if err != nil {
 				// Keep going in spite of failure
 				logf("error getting cache key: %s", err)
+			} else {
+				keyMap[keyID] = key.VersionHash
 			}
-			keyMap[keyID] = key.VersionHash
 		} else {
 			d.deleteKey(keyID)
 		}
@@ -246,7 +247,6 @@ func (d daemon) processKey(keyID string) error {
 		return fmt.Errorf("Error writing key %s to file: %s", keyID, err.Error())
 	}
 
-	// Need to chmod due to a umask set on masterless puppet machines
 	err = os.Chmod(d.keyFilename(keyID), defaultFilePermission)
 	if err != nil {
 		return fmt.Errorf("Failed to open up key file permissions: %s", err.Error())

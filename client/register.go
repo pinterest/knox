@@ -1,5 +1,11 @@
 package client
 
+import (
+	"encoding/json"
+	"fmt"
+	"time"
+)
+
 func init() {
 	cmdRegister.Run = runRegister
 }
@@ -13,6 +19,7 @@ Register will cache the key in the file system and keep it up to date using the 
 -r removes all existing registered keys.
 -k specifies a specific key identifier to register
 -f specifies a file containing a new line separated list of key identifiers
+-g gets the key as well
 
 For a machine to access a certain key, it needs permissions on that key.
 
@@ -29,6 +36,10 @@ See also: knox unregister, knox daemon
 var registerRemove = cmdRegister.Flag.Bool("r", false, "")
 var registerKey = cmdRegister.Flag.String("k", "", "")
 var registerKeyFile = cmdRegister.Flag.String("f", "", "")
+var registerAndGet = cmdRegister.Flag.Bool("g", false, "")
+
+const registerRecheckTime = 10 * time.Millisecond
+const registerTimeout = 1 * time.Second
 
 func runRegister(cmd *Command, args []string) {
 	if *registerKey == "" && *registerKeyFile == "" {
@@ -66,6 +77,26 @@ func runRegister(cmd *Command, args []string) {
 	if err != nil {
 		errorf("There was an error unlocking register file: %s", err.Error())
 	}
-	logf("Successfully registered keys %v", ks)
+	if *registerAndGet {
+		key, err := cli.CacheGetKey(*registerKey)
+		c := time.After(registerTimeout)
+		for err != nil {
+			select {
+			case <-c:
+				fatalf("Error getting key from daemon; check knox logs for details")
+			case <-time.After(registerRecheckTime):
+				key, err = cli.CacheGetKey(*registerKey)
+			}
+		}
+		// TODO: add json vs data option?
+		data, err := json.Marshal(key)
+		if err != nil {
+			fatalf(err.Error())
+		}
+		fmt.Printf("%s", string(data))
+		return
+	} else {
+		logf("Successfully registered keys %v", ks)
+	}
 
 }

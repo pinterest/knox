@@ -97,15 +97,7 @@ func NewMock(primary string, active []string) Client {
 
 // Register registers the given keyName with knox. If the operation fails, it returns an error.
 func Register(keyID string) ([]byte, error) {
-	if output, err := exec.Command("knox", "register", "-k", keyID).CombinedOutput(); err != nil {
-		return nil, fmt.Errorf("error registering knox key: %s %v '%q'", keyID, err, output)
-	}
-	cmd := exec.Command("knox", "get", "-j", keyID)
-	host, err := os.Hostname()
-	if err != nil {
-		return nil, fmt.Errorf("No hostname found: %s", err.Error())
-	}
-	cmd.Env = []string{"KNOX_MACHINE_AUTH=" + host}
+	cmd := exec.Command("knox", "register", "-g", "-k", keyID)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return nil, fmt.Errorf("error getting knox key: %s %v '%q'", keyID, err, output)

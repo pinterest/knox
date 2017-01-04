@@ -144,20 +144,12 @@ func serveTLS(certPEMBlock, keyPEMBlock []byte, httpPort string) error {
 	// This TLS config disables RC4 and SSLv3.
 	tlsConfig := &tls.Config{
 		NextProtos:               []string{"http/1.1"},
-		MinVersion:               tls.VersionTLS10,
+		MinVersion:               tls.VersionTLS12,
 		PreferServerCipherSuites: true,
 		ClientAuth:               tls.RequestClientCert,
 		CipherSuites: []uint16{
 			tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
 			tls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
-			tls.TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA,
-			tls.TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA,
-			tls.TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA,
-			tls.TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA,
-			tls.TLS_RSA_WITH_AES_128_CBC_SHA,
-			tls.TLS_RSA_WITH_AES_256_CBC_SHA,
-			tls.TLS_ECDHE_RSA_WITH_3DES_EDE_CBC_SHA,
-			tls.TLS_RSA_WITH_3DES_EDE_CBC_SHA,
 		},
 	}
 

@@ -40,8 +40,8 @@ var daemonKeys = "/v0/keys/"
 var lockTimeout = 10 * time.Second
 var lockRetryTime = 50 * time.Millisecond
 
-var defaultFilePermission os.FileMode = 0664
-var defaultDirPermission os.FileMode = 0774
+var defaultFilePermission os.FileMode = 0666
+var defaultDirPermission os.FileMode = 0777
 
 var daemonRefreshTime = 10 * time.Minute
 

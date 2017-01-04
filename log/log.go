@@ -255,7 +255,7 @@ func (l *Logger) Output(calldepth int, s string) error {
 		return err
 	}
 
-	_, err = l.out.Write(t)
+	_, err = l.out.Write(append(t, '\n'))
 	return err
 }
 

@@ -122,6 +122,7 @@ var commands = []*Command{
 	cmdGetKeys,
 	cmdGet,
 	cmdGetVersions,
+	cmdGetACL,
 	cmdPromote,
 	cmdCreate,
 	cmdAdd,

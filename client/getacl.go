@@ -3,8 +3,6 @@ package client
 import (
 	"fmt"
 	"encoding/json"
-
-	"github.com/pinterest/knox"
 )
 
 func init() {
@@ -31,13 +29,12 @@ func runGetACL(cmd *Command, args []string) {
 	}
 
 	keyID := args[0]
-	key, err := cli.GetKey(keyID)
+	acl, err := cli.GetACL(keyID)
 	if err != nil {
-		fatalf("Error getting key: %s", err.Error())
+		fatalf("Error getting key ACL: %s", err.Error())
 	}
-	var acl knox.ACL = key.ACL
 
-	for _, a := range acl {
+	for _, a := range *acl {
 		aEnc, _ := json.Marshal(a)
 		fmt.Println(string(aEnc))		
 	}

@@ -281,8 +281,8 @@ func TestGetAccess(t *testing.T) {
 	}
 
 	_, err = getAccessHandler(m, machine, map[string]string{"keyID": "a1"})
-	if err == nil {
-		t.Fatal("Expected err")
+	if err != nil {
+		t.Fatalf("%+v is not nil", err)
 	}
 
 	_, err = getAccessHandler(m, u, map[string]string{"keyID": "NOTAKEY"})

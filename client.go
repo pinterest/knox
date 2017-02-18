@@ -111,6 +111,7 @@ type APIClient interface {
 	CreateKey(keyID string, data []byte, acl ACL) (uint64, error)
 	GetKeys(keys map[string]string) ([]string, error)
 	DeleteKey(keyID string) error
+	GetACL(keyID string) (*ACL, error)
 	PutAccess(keyID string, a *Access) error
 	AddVersion(keyID string, data []byte) (uint64, error)
 	UpdateVersion(keyID, versionID string, status VersionStatus) error
@@ -209,6 +210,13 @@ func (c *HTTPClient) GetKeys(keys map[string]string) ([]string, error) {
 func (c HTTPClient) DeleteKey(keyID string) error {
 	err := c.getHTTPData("DELETE", "/v0/keys/"+keyID+"/", nil, nil)
 	return err
+}
+
+// GetACL gets a knox key by keyID.
+func (c *HTTPClient) GetACL(keyID string) (*ACL, error) {
+	acl := &ACL{}
+	err := c.getHTTPData("GET", "/v0/keys/"+keyID+"/access/", nil, acl)
+	return acl, err
 }
 
 // PutAccess will add an ACL rule to a specific key.

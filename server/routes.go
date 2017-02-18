@@ -255,10 +255,9 @@ func getAccessHandler(m KeyManager, principal knox.Principal, parameters map[str
 		return nil, errF(knox.InternalServerErrorCode, getErr.Error())
 	}
 
-	// Authorize
-	if !principal.CanAccess(key.ACL, knox.Read) {
-		return nil, errF(knox.UnauthorizedCode, "")
-	}
+	// NO authorization on purpose
+	// this allows, e.g., to see who has admin access to ask for grants
+
 	return key.ACL, nil
 }
 

@@ -15,7 +15,7 @@ var cmdGetACL = &Command{
 	Long: `
 Acl get the ACL for a key.
 
-This requires read access to the key and can use user or machine authentication.
+This doesn't require any access to the key and allows, e.g., to see who has admin access to ask for grants.
 
 For more about knox, see https://github.com/pinterest/knox.
 

@@ -11,7 +11,7 @@ func init() {
 }
 
 var cmdRegister = &Command{
-	UsageLine: "register [-r] [-k identifier] [-f identifier_file]",
+	UsageLine: "register [-r] [-k identifier] [-f identifier_file] [-g]",
 	Short:     "register keys to cache locally using daemon",
 	Long: `
 Register will cache the key in the file system and keep it up to date using the file system.

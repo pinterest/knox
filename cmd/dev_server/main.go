@@ -24,19 +24,17 @@ import (
 )
 
 const caCert = `-----BEGIN CERTIFICATE-----
-MIICZDCCAgqgAwIBAgIUV/9Ovq6Y38sy7l+TBnGzibrsStQwCgYIKoZIzj0EAwIw
-fjELMAkGA1UEBhMCVVMxFjAUBgNVBAgTDVNhbiBGcmFuY2lzY28xCzAJBgNVBAcT
-AkNBMRgwFgYDVQQKEw9NeSBDb21wYW55IE5hbWUxEzARBgNVBAsTCk9yZyBVbml0
-IDIxGzAZBgNVBAMTEnVzZU9ubHlJbkRldk9yVGVzdDAeFw0xNjA0MjgxODQ0MDBa
-Fw0yMTA0MjcxODQ0MDBaMH4xCzAJBgNVBAYTAlVTMRYwFAYDVQQIEw1TYW4gRnJh
-bmNpc2NvMQswCQYDVQQHEwJDQTEYMBYGA1UEChMPTXkgQ29tcGFueSBOYW1lMRMw
-EQYDVQQLEwpPcmcgVW5pdCAyMRswGQYDVQQDExJ1c2VPbmx5SW5EZXZPclRlc3Qw
-WTATBgcqhkjOPQIBBggqhkjOPQMBBwNCAATjBG3vEwKV5PzOZk7Uf/8JGdX1YZpV
-Zk7PtpfTYchIp40bY2DV+iYb/bEaxytLECaIoLS2FRR/ZLCzMBNGBJfao2YwZDAO
-BgNVHQ8BAf8EBAMCAQYwEgYDVR0TAQH/BAgwBgEB/wIBAjAdBgNVHQ4EFgQUTS1i
-WIo7D/ErlcqpYD12QGouqlYwHwYDVR0jBBgwFoAUTS1iWIo7D/ErlcqpYD12QGou
-qlYwCgYIKoZIzj0EAwIDSAAwRQIhALxAY3gtSz6VRND4DsMKaeHmuYGFctwdAWeL
-zvRXTUCdAiAXgynic2vnOt/jQXoOKCIgfxGytpAaDwZv8RgdI5yg8g==
+MIIB5jCCAYygAwIBAgIUD/1LTTQNvk3Rp9399flLlimbgngwCgYIKoZIzj0EAwIw
+UTELMAkGA1UEBhMCVVMxCzAJBgNVBAgTAkNBMRgwFgYDVQQKEw9NeSBDb21wYW55
+IE5hbWUxGzAZBgNVBAMTEnVzZU9ubHlJbkRldk9yVGVzdDAeFw0xODAzMDIwMTU5
+MDBaFw0yMzAzMDEwMTU5MDBaMFExCzAJBgNVBAYTAlVTMQswCQYDVQQIEwJDQTEY
+MBYGA1UEChMPTXkgQ29tcGFueSBOYW1lMRswGQYDVQQDExJ1c2VPbmx5SW5EZXZP
+clRlc3QwWTATBgcqhkjOPQIBBggqhkjOPQMBBwNCAARbSovOAo4ZimGBOn+tyftX
++GXShKsy2eFdvX9WfYx2NvYnw+RSM/JjRSBhUsCPXuEh/E5lhwRVfUxIlHry1CkS
+o0IwQDAOBgNVHQ8BAf8EBAMCAQYwDwYDVR0TAQH/BAUwAwEB/zAdBgNVHQ4EFgQU
+jjNCAZxA5kjDK1ogrwkdziFiDgkwCgYIKoZIzj0EAwIDSAAwRQIgLXo9amyNn1Y3
+qLpqrzVF7N7UQ3mxTl01MvnsqvahI08CIQCArwO8KmbPbN5XZrQ2h9zUgbsebwSG
+dfOY505yMqiXig==
 -----END CERTIFICATE-----`
 
 var gitSha = expvar.NewString("version")
@@ -79,7 +77,11 @@ func main() {
 		server.Logger(accLogger),
 		server.AddHeader("Content-Type", "application/json"),
 		server.AddHeader("X-Content-Type-Options", "nosniff"),
-		server.Authentication([]auth.Provider{auth.NewMTLSAuthProvider(certPool), auth.NewGitHubProvider(authTimeout)}),
+		server.Authentication([]auth.Provider{
+			auth.NewMTLSAuthProvider(certPool),
+			auth.NewGitHubProvider(authTimeout),
+			auth.NewSpiffeAuthProvider(certPool),
+		}),
 	}
 
 	r := server.GetRouter(cryptor, db, decorators)

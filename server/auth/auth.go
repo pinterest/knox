@@ -20,6 +20,34 @@ type Provider interface {
 	Type() byte
 }
 
+func verifyCertificate(r *http.Request, cas *x509.CertPool,
+	timeFunc func() time.Time) (*x509.Certificate, error) {
+	certs := r.TLS.PeerCertificates
+	if len(certs) == 0 {
+		return nil, fmt.Errorf("auth: No peer certs configured")
+	}
+	opts := x509.VerifyOptions{
+		Roots:         cas,
+		CurrentTime:   timeFunc(),
+		Intermediates: x509.NewCertPool(),
+		KeyUsages:     []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth},
+	}
+
+	for _, cert := range certs[1:] {
+		opts.Intermediates.AddCert(cert)
+	}
+
+	chains, err := certs[0].Verify(opts)
+	if err != nil {
+		return nil, fmt.Errorf("auth: failed to verify client's certificate: " + err.Error())
+	}
+	if len(chains) == 0 {
+		return nil, fmt.Errorf("auth: No cert chains could be verified")
+	}
+	return certs[0], nil
+}
+
+// NewMTLSAuthProvider initializes a chain of trust with given CA certificates
 func NewMTLSAuthProvider(CAs *x509.CertPool) *MTLSAuthProvider {
 	return &MTLSAuthProvider{
 		CAs:  CAs,
@@ -45,34 +73,66 @@ func (p *MTLSAuthProvider) Type() byte {
 
 // Authenticate performs TLS based Authentication for the MTLSAuthProvider
 func (p *MTLSAuthProvider) Authenticate(token string, r *http.Request) (knox.Principal, error) {
-	certs := r.TLS.PeerCertificates
-	if len(certs) == 0 {
-		return nil, fmt.Errorf("No peer certs configured:")
-	}
-	err := certs[0].VerifyHostname(token)
+	cert, err := verifyCertificate(r, p.CAs, p.time)
 	if err != nil {
 		return nil, err
 	}
 
-	opts := x509.VerifyOptions{
-		Roots:         p.CAs,
-		CurrentTime:   p.time(),
-		Intermediates: x509.NewCertPool(),
-		KeyUsages:     []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth},
-	}
-
-	for _, cert := range certs[1:] {
-		opts.Intermediates.AddCert(cert)
-	}
-
-	chains, err := certs[0].Verify(opts)
+	// Check the CN matches the token
+	err = cert.VerifyHostname(token)
 	if err != nil {
-		return nil, fmt.Errorf("auth: failed to verify client's certificate: " + err.Error())
+		return nil, err
 	}
-	if len(chains) == 0 {
-		return nil, fmt.Errorf("auth: No cert chains could be verified")
-	}
+
 	return NewMachine(token), nil
+}
+
+// NewSpiffeAuthProvider initializes a chain of trust with given CA certificates,
+// identical to the MTLS provider except the principal is a Spiffe ID instead
+// of a hostname and the CN of the cert is ignored.
+func NewSpiffeAuthProvider(CAs *x509.CertPool) *SpiffeProvider {
+	return &SpiffeProvider{
+		CAs:  CAs,
+		time: time.Now,
+	}
+}
+
+// SpiffeProvider does authentication by verifying TLS certs against a collection of root CAs
+type SpiffeProvider struct {
+	CAs  *x509.CertPool
+	time func() time.Time
+}
+
+// Version is set to 0 for SpiffeProvider
+func (p *SpiffeProvider) Version() byte {
+	return '0'
+}
+
+// Type is set to s for SpiffeProvider
+func (p *SpiffeProvider) Type() byte {
+	return 's'
+}
+
+// Authenticate performs TLS based Authentication and extracts the Spiffe URI extension
+func (p *SpiffeProvider) Authenticate(token string, r *http.Request) (knox.Principal, error) {
+	cert, err := verifyCertificate(r, p.CAs, p.time)
+	if err != nil {
+		return nil, err
+	}
+
+	// Extract the Spiffe URI extension from the certificate
+	spiffeURIs, err := uri.GetURINamesFromCertificate(cert)
+	if err != nil {
+		return nil, err
+	}
+	if len(spiffeURIs) > 1 {
+		return nil, fmt.Errorf("auth: more than one service identity specified in certificate")
+	}
+	splits := strings.SplitN(spiffeURIs[0][9:], "/", 2)
+	if len(splits) != 2 {
+		return nil, fmt.Errorf("auth: invalid service ID format")
+	}
+	return NewService(splits[0], splits[1]), nil
 }
 
 // GitHubProvider implements user authentication through github.com
@@ -150,6 +210,12 @@ func IsUser(p knox.Principal) bool {
 	return ok
 }
 
+// IsService returns true if the principal is a service.
+func IsService(p knox.Principal) bool {
+	_, ok := p.(service)
+	return ok
+}
+
 type stringSet map[string]struct{}
 
 func (s *stringSet) memberOf(e string) bool {
@@ -173,6 +239,11 @@ func NewUser(id string, groups []string) knox.Principal {
 // NewMachine creates a machine principal with the given auth Provider.
 func NewMachine(id string) knox.Principal {
 	return machine(id)
+}
+
+// NewService creates a service principal with the given auth Provider.
+func NewService(domain string, path string) knox.Principal {
+	return service{domain, path}
 }
 
 // User represents an LDAP user and the AuthProvider to allow group information
@@ -226,6 +297,31 @@ func (m machine) CanAccess(acl knox.ACL, t knox.AccessType) bool {
 		case knox.MachinePrefix:
 			// TODO(devinlundberg): Investigate security implications of this
 			if strings.HasPrefix(string(m), a.ID) && a.AccessType.CanAccess(t) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// Service represents a given service from a trust domain
+type service struct {
+	domain string
+	id     string
+}
+
+// GetID converts the internal representation into a SPIFFE id
+func (s service) GetID() string {
+	return "spiffe://" + s.domain + "/" + s.id
+}
+
+// CanAccess determines if a Service can access an object represented by the ACL
+// with a certain AccessType. It compares Service id and id prefix.
+func (s service) CanAccess(acl knox.ACL, t knox.AccessType) bool {
+	for _, a := range acl {
+		switch a.Type {
+		case knox.Service:
+			if a.ID == string(s.GetID()) && a.AccessType.CanAccess(t) {
 				return true
 			}
 		}

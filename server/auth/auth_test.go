@@ -81,6 +81,20 @@ func TestMachineCanAccess(t *testing.T) {
 	}
 }
 
+func TestServiceCanAccess(t *testing.T) {
+	s := NewService("example.com", "serviceA")
+	a1 := knox.Access{ID: "spiffe://example.com/serviceA", AccessType: knox.Read,
+		Type: knox.Service}
+
+	acl1 := knox.ACL([]knox.Access{a1})
+	if s.CanAccess(acl1, knox.Admin) {
+		t.Error("service can't access user permission matching id")
+	}
+	if !s.CanAccess(acl1, knox.Read) {
+		t.Error("service can't access group they are in")
+	}
+}
+
 const caCert = `-----BEGIN CERTIFICATE-----
 MIICOjCCAeCgAwIBAgIUIKkBZQbtx8rVaWIOhpabkqZSqecwCgYIKoZIzj0EAwIw
 aTELMAkGA1UEBhMCVVMxEzARBgNVBAgTCkNhbGlmb3JuaWExFjAUBgNVBAcTDVNh
@@ -253,5 +267,64 @@ func TestGetInvalidUser(t *testing.T) {
 	_, err := a.Authenticate(token, nil)
 	if err == nil {
 		t.Error("Expected Error with invalid token")
+	}
+}
+
+const spiffeCA = `-----BEGIN CERTIFICATE-----
+MIIB5jCCAYygAwIBAgIUD/1LTTQNvk3Rp9399flLlimbgngwCgYIKoZIzj0EAwIw
+UTELMAkGA1UEBhMCVVMxCzAJBgNVBAgTAkNBMRgwFgYDVQQKEw9NeSBDb21wYW55
+IE5hbWUxGzAZBgNVBAMTEnVzZU9ubHlJbkRldk9yVGVzdDAeFw0xODAzMDIwMTU5
+MDBaFw0yMzAzMDEwMTU5MDBaMFExCzAJBgNVBAYTAlVTMQswCQYDVQQIEwJDQTEY
+MBYGA1UEChMPTXkgQ29tcGFueSBOYW1lMRswGQYDVQQDExJ1c2VPbmx5SW5EZXZP
+clRlc3QwWTATBgcqhkjOPQIBBggqhkjOPQMBBwNCAARbSovOAo4ZimGBOn+tyftX
++GXShKsy2eFdvX9WfYx2NvYnw+RSM/JjRSBhUsCPXuEh/E5lhwRVfUxIlHry1CkS
+o0IwQDAOBgNVHQ8BAf8EBAMCAQYwDwYDVR0TAQH/BAUwAwEB/zAdBgNVHQ4EFgQU
+jjNCAZxA5kjDK1ogrwkdziFiDgkwCgYIKoZIzj0EAwIDSAAwRQIgLXo9amyNn1Y3
+qLpqrzVF7N7UQ3mxTl01MvnsqvahI08CIQCArwO8KmbPbN5XZrQ2h9zUgbsebwSG
+dfOY505yMqiXig==
+-----END CERTIFICATE-----`
+
+const spiffeCertB64 = `MIIB7TCCAZOgAwIBAgIDEAAEMAoGCCqGSM49BAMCMFExCzAJBgNVBAYTAlVTMQsw
+CQYDVQQIEwJDQTEYMBYGA1UEChMPTXkgQ29tcGFueSBOYW1lMRswGQYDVQQDExJ1
+c2VPbmx5SW5EZXZPclRlc3QwHhcNMTgwMzAyMDI1NjEyWhcNMTkwMzAyMDI1NjEy
+WjBKMQswCQYDVQQGEwJVUzELMAkGA1UECAwCQ0ExGDAWBgNVBAoMD015IENvbXBh
+bnkgTmFtZTEUMBIGA1UEAwwLZXhhbXBsZS5jb20wWTATBgcqhkjOPQIBBggqhkjO
+PQMBBwNCAAQQTbdQNoE5/j6mgh4HAdbgPyGbuzjpHI/x34p6qPojduUK+ifUW6Mb
+bS5Zumjh31K5AmWYt4jWfU82Sb6sxPKXo2EwXzAJBgNVHRMEAjAAMAsGA1UdDwQE
+AwIF4DBFBgNVHREEPjA8hhxzcGlmZmU6Ly9leGFtcGxlLmNvbS9zZXJ2aWNlggtl
+eGFtcGxlLmNvbYIPd3d3LmV4YW1wbGUuY29tMAoGCCqGSM49BAMCA0gAMEUCIQDO
+TaI0ltMPlPDt4XSdWJawZ4euAGXJCyoxHFs8HQK8XwIgVokWyTcajFoP0/ZfzrM5
+SihfFJr39Ck4V5InJRHPPtY=`
+
+func TestSpiffeSuccess(t *testing.T) {
+	expected := "spiffe://example.com/service"
+	req, err := http.NewRequest("GET", "http://localhost/", nil)
+	req.Header.Add("Authorization", "0sANYTHING")
+	req.RemoteAddr = "0.0.0.0:23423"
+	certBytes := make([]byte, base64.StdEncoding.DecodedLen(len(spiffeCertB64)))
+	n, err := base64.StdEncoding.Decode(certBytes, []byte(spiffeCertB64))
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+	c, err := x509.ParseCertificate(certBytes[:n])
+	req.TLS = &tls.ConnectionState{
+		PeerCertificates: []*x509.Certificate{c},
+	}
+
+	caPool := x509.NewCertPool()
+	caPool.AppendCertsFromPEM([]byte(spiffeCA))
+	a := SpiffeProvider{
+		CAs:  caPool,
+		time: func() time.Time { return time.Date(2018, time.March, 22, 11, 0, 0, 0, time.UTC) },
+	}
+	p, err := a.Authenticate("ANYTHING", req)
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+	if !IsService(p) {
+		t.Fatal("Authenticated principal is not a service")
+	}
+	if p.GetID() != expected {
+		t.Fatal("Service ID differs from expected result")
 	}
 }

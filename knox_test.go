@@ -134,7 +134,7 @@ func TestAccessTypeMarshaling(t *testing.T) {
 	}
 }
 func TestPrincipalTypeMarshaling(t *testing.T) {
-	for _, in := range []PrincipalType{User, UserGroup, Machine, MachinePrefix} {
+	for _, in := range []PrincipalType{User, UserGroup, Machine, MachinePrefix, Service} {
 		var out PrincipalType
 		marshalUnmarshal(t, &in, &out)
 		if in != out {
@@ -178,7 +178,8 @@ func TestACLValidate(t *testing.T) {
 	a1 := Access{ID: "testmachine1", AccessType: Admin, Type: Machine}
 	a2 := Access{ID: "testuser", AccessType: Write, Type: User}
 	a3 := Access{ID: "testmachine", AccessType: Read, Type: MachinePrefix}
-	validACL := ACL([]Access{a1, a2, a3})
+	a6 := Access{ID: "spiffe://example.com/serviceA", AccessType: Read, Type: Service}
+	validACL := ACL([]Access{a1, a2, a3, a6})
 	if validACL.Validate() != nil {
 		t.Error("ValidACL should be valid")
 	}
@@ -267,7 +268,8 @@ func TestKeyValidate(t *testing.T) {
 	a2 := Access{ID: "testuser", AccessType: Write, Type: User}
 	a3 := Access{ID: "testmachine", AccessType: Read, Type: MachinePrefix}
 	a4 := Access{ID: "testmachine", AccessType: None, Type: MachinePrefix}
-	validACL := ACL([]Access{a1, a2, a3})
+	a5 := Access{ID: "spiffe://example.com/serviceA", AccessType: Admin, Type: Service}
+	validACL := ACL([]Access{a1, a2, a3, a5})
 	invalidACL := ACL([]Access{a1, a2, a4})
 
 	validKeyID := "test_key"

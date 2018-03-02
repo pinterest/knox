@@ -169,6 +169,8 @@ func buildRequest(req *http.Request, p knox.Principal, params map[string]string)
 		r.Principal = p.GetID()
 		if auth.IsUser(p) {
 			r.AuthType = "user"
+		} else if auth.IsService(p) {
+			r.AuthType = "service"
 		} else {
 			r.AuthType = "machine"
 		}

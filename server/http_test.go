@@ -399,4 +399,19 @@ func TestKeyAccessUpdates(t *testing.T) {
 		t.Fatal("Incorrect initial ACL")
 	}
 
+	accessService := knox.Access{ID: "testservice", Type: knox.Service, AccessType: knox.Read}
+	putAccess(t, keyID, &accessService)
+	acl4 := getAccess(t, keyID)
+	if len(acl4) != 2 {
+		t.Fatal("Incorrect ACL length")
+	}
+	for _, a := range acl {
+		switch a.ID {
+		case "testuser":
+		case "testservice":
+			if a.AccessType != accessService.AccessType || a.Type != accessService.Type {
+				t.Fatal("Incorrect updated ACL")
+			}
+		}
+	}
 }

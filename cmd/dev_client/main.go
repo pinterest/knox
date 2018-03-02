@@ -19,28 +19,25 @@ import (
 // certPEMBlock is the certificate signed by the CA to identify the machine using the client
 // (Should be pulled from a file or via another process)
 const certPEMBlock = `-----BEGIN CERTIFICATE-----
-MIICkjCCAjmgAwIBAgIUTCFC8AeJzYjPVDb4wvQbqVcbl/8wCgYIKoZIzj0EAwIw
-fjELMAkGA1UEBhMCVVMxFjAUBgNVBAgTDVNhbiBGcmFuY2lzY28xCzAJBgNVBAcT
-AkNBMRgwFgYDVQQKEw9NeSBDb21wYW55IE5hbWUxEzARBgNVBAsTCk9yZyBVbml0
-IDIxGzAZBgNVBAMTEnVzZU9ubHlJbkRldk9yVGVzdDAeFw0xNjA0MjgxODQ4MDBa
-Fw0xNzA0MjgxODQ4MDBaMGkxCzAJBgNVBAYTAlVTMRMwEQYDVQQIEwpDYWxpZm9y
-bmlhMRYwFAYDVQQHEw1TYW4gRnJhbmNpc2NvMR8wHQYDVQQKExZJbnRlcm5ldCBX
-aWRnZXRzLCBJbmMuMQwwCgYDVQQLEwNXV1cwWTATBgcqhkjOPQIBBggqhkjOPQMB
-BwNCAATxZJgi7YWQtewgoC3dKrooyq4Be7u1yghoT4OiFiOqUmgUxfQiVenSJIUM
-A2pgcOix66a9j/4KqGqAi3WmFdmSo4GpMIGmMA4GA1UdDwEB/wQEAwIFoDAdBgNV
-HSUEFjAUBggrBgEFBQcDAQYIKwYBBQUHAwIwDAYDVR0TAQH/BAIwADAdBgNVHQ4E
-FgQUMiS1WUuVsQLL5cxbzNRDUojaHFkwHwYDVR0jBBgwFoAUTS1iWIo7D/Erlcqp
-YD12QGouqlYwJwYDVR0RBCAwHoILZXhhbXBsZS5jb22CD3d3dy5leGFtcGxlLmNv
-bTAKBggqhkjOPQQDAgNHADBEAiAvguEAh8iAyJsG8bb/5z6z5LQQZtVRqeNSes2i
-YEgUtwIgTQ0dbp7Gtm5PcTTYQb83Hbo9MDGIi4FEfL0Rw4P4Tyw=
+MIIB7TCCAZOgAwIBAgIDEAAEMAoGCCqGSM49BAMCMFExCzAJBgNVBAYTAlVTMQsw
+CQYDVQQIEwJDQTEYMBYGA1UEChMPTXkgQ29tcGFueSBOYW1lMRswGQYDVQQDExJ1
+c2VPbmx5SW5EZXZPclRlc3QwHhcNMTgwMzAyMDI1NjEyWhcNMTkwMzAyMDI1NjEy
+WjBKMQswCQYDVQQGEwJVUzELMAkGA1UECAwCQ0ExGDAWBgNVBAoMD015IENvbXBh
+bnkgTmFtZTEUMBIGA1UEAwwLZXhhbXBsZS5jb20wWTATBgcqhkjOPQIBBggqhkjO
+PQMBBwNCAAQQTbdQNoE5/j6mgh4HAdbgPyGbuzjpHI/x34p6qPojduUK+ifUW6Mb
+bS5Zumjh31K5AmWYt4jWfU82Sb6sxPKXo2EwXzAJBgNVHRMEAjAAMAsGA1UdDwQE
+AwIF4DBFBgNVHREEPjA8hhxzcGlmZmU6Ly9leGFtcGxlLmNvbS9zZXJ2aWNlggtl
+eGFtcGxlLmNvbYIPd3d3LmV4YW1wbGUuY29tMAoGCCqGSM49BAMCA0gAMEUCIQDO
+TaI0ltMPlPDt4XSdWJawZ4euAGXJCyoxHFs8HQK8XwIgVokWyTcajFoP0/ZfzrM5
+SihfFJr39Ck4V5InJRHPPtY=
 -----END CERTIFICATE-----`
 
 // keyPEMBlock is the private key that should only be available on the machine running this client
 // (Should be pulled from a file or via another process)
 const keyPEMBlock = `-----BEGIN EC PRIVATE KEY-----
-MHcCAQEEILwfFi1LNc4OG8GAQTHTFC4WbtgwUUfoYNnrrrtaAIH+oAoGCCqGSM49
-AwEHoUQDQgAE8WSYIu2FkLXsIKAt3Sq6KMquAXu7tcoIaE+DohYjqlJoFMX0IlXp
-0iSFDANqYHDoseumvY/+CqhqgIt1phXZkg==
+MHcCAQEEIDHDjs9Ug8QvsuKRrtC6QUmz4u++oBJF2VtCZe9gYyzOoAoGCCqGSM49
+AwEHoUQDQgAEEE23UDaBOf4+poIeBwHW4D8hm7s46RyP8d+Keqj6I3blCvon1Fuj
+G20uWbpo4d9SuQJlmLeI1n1PNkm+rMTylw==
 -----END EC PRIVATE KEY-----`
 
 // hostname is the host running the knox server
@@ -83,6 +80,9 @@ func authHandler() string {
 		} else {
 			return "0t" + s
 		}
+	}
+	if s := os.Getenv("KNOX_SERVICE_AUTH"); s != "" {
+		return "0s" + s
 	}
 	u, err := user.Current()
 	if err != nil {

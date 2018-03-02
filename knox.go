@@ -95,6 +95,8 @@ const (
 	Machine
 	// MachinePrefix represents a prefix to match multiple Machines.
 	MachinePrefix
+	// Service represents a service via Spiffe ID
+	Service
 )
 
 // UnmarshalJSON parses JSON input to set an PrincipalType.
@@ -108,6 +110,8 @@ func (s *PrincipalType) UnmarshalJSON(b []byte) error {
 		*s = Machine
 	case `"MachinePrefix"`:
 		*s = MachinePrefix
+	case `"Service"`:
+		*s = Service
 	default:
 		return invalidTypeError{"PrincipalType"}
 	}
@@ -125,6 +129,8 @@ func (s PrincipalType) MarshalJSON() ([]byte, error) {
 		return json.Marshal("Machine")
 	case MachinePrefix:
 		return json.Marshal("MachinePrefix")
+	case Service:
+		return json.Marshal("Service")
 	default:
 		return nil, invalidTypeError{"PrincipalType"}
 	}

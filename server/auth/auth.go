@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/pinterest/knox"
+	"github.com/spiffe/go-spiffe/uri"
 )
 
 // Provider is used for authenticating requests via the authentication decorator.

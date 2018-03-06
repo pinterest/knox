@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/pinterest/knox"
-	"github.com/spiffe/go-spiffe/uri"
 )
 
 // Provider is used for authenticating requests via the authentication decorator.
@@ -122,7 +121,7 @@ func (p *SpiffeProvider) Authenticate(token string, r *http.Request) (knox.Princ
 	}
 
 	// Extract the Spiffe URI extension from the certificate
-	spiffeURIs, err := uri.GetURINamesFromCertificate(cert)
+	spiffeURIs, err := GetURINamesFromExtensions(&cert.Extensions)
 	if err != nil {
 		return nil, err
 	}

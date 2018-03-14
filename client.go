@@ -40,6 +40,7 @@ func (c *fileClient) update() error {
 	if err != nil {
 		return fmt.Errorf("Knox key file err: %s", err.Error())
 	}
+	defer f.Close()
 	err = json.NewDecoder(f).Decode(&key)
 	if err != nil {
 		return fmt.Errorf("Knox json decode err: %s", err.Error())

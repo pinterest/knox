@@ -418,6 +418,7 @@ const (
 	NoKeyIDCode
 	NoKeyDataCode
 	BadRequestDataCode
+	BadKeyFormatCode
 )
 
 // Response is the format for responses from the api server.

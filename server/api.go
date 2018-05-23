@@ -44,6 +44,7 @@ var HTTPErrMap = map[int]*httpErrResp{
 	knox.NotFoundCode:                  &httpErrResp{http.StatusNotFound, "Route not found"},
 	knox.NoKeyDataCode:                 &httpErrResp{http.StatusBadRequest, "Missing Key Data"},
 	knox.BadRequestDataCode:            &httpErrResp{http.StatusBadRequest, "Bad request format"},
+	knox.BadKeyFormatCode:              &httpErrResp{http.StatusBadRequest, "Key ID contains unsupported characters"},
 }
 
 func combine(f, g func(http.HandlerFunc) http.HandlerFunc) func(http.HandlerFunc) http.HandlerFunc {

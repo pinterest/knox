@@ -173,7 +173,7 @@ func postKeysHandler(m KeyManager, principal knox.Principal, parameters map[stri
 			return nil, errF(knox.KeyIdentifierExistsCode, "")
 		}
 		if err == knox.ErrInvalidKeyID {
-			return nil, errF(knox.BadRequestDataCode, "") // Add a better response here
+			return nil, errF(knox.BadKeyFormatCode, "")
 		}
 
 		return nil, errF(knox.InternalServerErrorCode, err.Error())

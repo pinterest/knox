@@ -149,9 +149,13 @@ func TestPrincipalTypeMarshaling(t *testing.T) {
 		t.Error("Marshaled invalid enum")
 	}
 	unmarshalErr := invalid.UnmarshalJSON([]byte("ThisInputIsNotValid"))
-	if unmarshalErr == nil {
-		t.Error("Unmarshaled invalid string")
+	if unmarshalErr != nil {
+		t.Error("Did not unmarshal invalid string")
 	}
+	if invalid != -1 {
+		t.Error("Unmarshalling invalid Principal type should result in -1")
+	}
+
 }
 func TestVersionStatusMarshaling(t *testing.T) {
 	for _, in := range []VersionStatus{Primary, Active, Inactive} {

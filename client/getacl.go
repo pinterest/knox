@@ -37,7 +37,7 @@ func runGetACL(cmd *Command, args []string) {
 	for _, a := range *acl {
 		aEnc, err := json.Marshal(a)
 		if err != nil {
-			fmt.Println("Could not unmarshal entry:", a)
+			fmt.Println("Could not marshal entry:", a)
 		}
 		fmt.Println(string(aEnc))
 	}

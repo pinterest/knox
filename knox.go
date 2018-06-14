@@ -113,7 +113,10 @@ func (s *PrincipalType) UnmarshalJSON(b []byte) error {
 	case `"Service"`:
 		*s = Service
 	default:
-		return invalidTypeError{"PrincipalType"}
+		// To ensure compatibilty in the event of new PrincipalTypes, don't
+		// throw an error. Instead just create a bogus Type. When displaying
+		// the ACL to the user, fail on the single entry. GetKey & GetACL will work.
+		*s = -1
 	}
 	return nil
 }

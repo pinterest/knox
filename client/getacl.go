@@ -1,8 +1,8 @@
 package client
 
 import (
-	"fmt"
 	"encoding/json"
+	"fmt"
 )
 
 func init() {
@@ -35,7 +35,10 @@ func runGetACL(cmd *Command, args []string) {
 	}
 
 	for _, a := range *acl {
-		aEnc, _ := json.Marshal(a)
-		fmt.Println(string(aEnc))		
+		aEnc, err := json.Marshal(a)
+		if err != nil {
+			fmt.Println("Could not unmarshal entry:", a)
+		}
+		fmt.Println(string(aEnc))
 	}
 }

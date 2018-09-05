@@ -86,12 +86,11 @@ func (s VersionStatus) MarshalJSON() ([]byte, error) {
 // is represented. This allows for users and machines to be bucketed together.
 type PrincipalType int
 
-// Unknown represents a bad PrincipalType that cannot be marshaled
-const Unknown PrincipalType = -1
-
 const (
+	// Unknown represents a bad PrincipalType that cannot be marshaled
+	Unknown PrincipalType = -1
 	// User represents a single LDAP User.
-	User PrincipalType = iota
+	User = iota
 	// UserGroup represents an LDAP security group.
 	UserGroup
 	// Machine represents the host of a machine.

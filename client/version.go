@@ -2,7 +2,7 @@ package client
 
 import "fmt"
 
-const versionString = "1.2.2"
+const versionString = "1.2.3"
 
 var cmdVersion = &Command{
 	Run:       runVersion,

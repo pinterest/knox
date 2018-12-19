@@ -2,9 +2,7 @@ package client
 
 import "fmt"
 
-const defaultVersionString = "devel"
-
-var Version string
+var Version string = "devel"
 
 var cmdVersion = &Command{
 	Run:       runVersion,
@@ -16,8 +14,5 @@ Prints the current version of the Knox client.
 }
 
 func runVersion(cmd *Command, args []string) {
-	if Version == "" {
-		Version = defaultVersionString
-	}
 	fmt.Printf("Knox CLI version %s\n", Version)
 }

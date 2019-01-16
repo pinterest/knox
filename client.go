@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"math/rand"
 	"net/http"
 	"net/url"
 	"os"
@@ -16,6 +17,11 @@ import (
 )
 
 const refresh = 10 * time.Second
+
+// For linear random backoff on write requests.
+const baseBackoff = 50 * time.Millisecond
+const maxBackoff = 3 * time.Second
+const maxRetryAttempts = 3
 
 // Client is an interface for interacting with a specific knox key
 type Client interface {
@@ -104,6 +110,18 @@ func Register(keyID string) ([]byte, error) {
 		return nil, fmt.Errorf("error getting knox key: %s %v '%q'", keyID, err, output)
 	}
 	return output, nil
+}
+
+// GetBackoffDuration returns a time duration to sleep based on the attempt #.
+func GetBackoffDuration(attempt int) time.Duration {
+	basef := float64(baseBackoff)
+	// Add some randomness.
+	duration := rand.Float64()*float64(attempt) + basef
+
+	if duration > float64(maxBackoff) {
+		return maxBackoff
+	}
+	return time.Duration(duration)
 }
 
 // APIClient is an interface that talks to the knox server for key management.
@@ -262,8 +280,6 @@ func (c *HTTPClient) getClient() (HTTP, error) {
 }
 
 func (c *HTTPClient) getHTTPData(method string, path string, body url.Values, data interface{}) error {
-	var err error
-
 	r, err := http.NewRequest(method, "https://"+c.Host+path, bytes.NewBufferString(body.Encode()))
 
 	if err != nil {
@@ -285,20 +301,30 @@ func (c *HTTPClient) getHTTPData(method string, path string, body url.Values, da
 	if err != nil {
 		return err
 	}
-	w, err := cli.Do(r)
-	if err != nil {
-		return err
+
+	// Contains retry logic if we decode a 500 error.
+	for i := 1; i <= maxRetryAttempts; i++ {
+		w, err := cli.Do(r)
+		if err != nil {
+			return err
+		}
+		resp := &Response{}
+		resp.Data = data
+		decoder := json.NewDecoder(w.Body)
+		err = decoder.Decode(resp)
+		if err != nil {
+			return err
+		}
+		if resp.Status != "ok" {
+			if (resp.Message != "Internal Server Error") || (i == maxRetryAttempts) {
+				return fmt.Errorf(resp.Message)
+			}
+			time.Sleep(GetBackoffDuration(i))
+		} else {
+			break
+		}
 	}
-	resp := &Response{}
-	resp.Data = data
-	decoder := json.NewDecoder(w.Body)
-	err = decoder.Decode(resp)
-	if err != nil {
-		return err
-	}
-	if resp.Status != "ok" {
-		return fmt.Errorf(resp.Message)
-	}
+
 	return nil
 }
 

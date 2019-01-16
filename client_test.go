@@ -4,8 +4,11 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"sync/atomic"
 	"testing"
 )
+
+var ops uint64
 
 func TestMockClient(t *testing.T) {
 	p := "primary"
@@ -26,16 +29,6 @@ func TestMockClient(t *testing.T) {
 	}
 }
 
-// buildServer returns a server. Call Close when finished.
-func buildServer(code int, body []byte, a func(r *http.Request)) *httptest.Server {
-	return httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		a(r)
-		w.WriteHeader(code)
-		w.Header().Set("Content-Type", "application/json")
-		w.Write(body)
-	}))
-}
-
 func buildGoodResponse(data interface{}) ([]byte, error) {
 	resp := &Response{
 		Status:    "ok",
@@ -47,6 +40,53 @@ func buildGoodResponse(data interface{}) ([]byte, error) {
 	}
 	return json.Marshal(resp)
 
+}
+
+func buildInternalServerErrorResponse(data interface{}) ([]byte, error) {
+	resp := &Response{
+		Status:		 "err",
+		Code:			 InternalServerErrorCode,
+		Host:			 "test",
+		Timestamp: 1234567890,
+		Message:	 "Internal Server Error",
+		Data:			 data,
+	}
+	return json.Marshal(resp)
+
+}
+
+// buildServer returns a server. Call Close when finished.
+func buildServer(code int, body []byte, a func(r *http.Request)) *httptest.Server {
+	return httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		a(r)
+		w.WriteHeader(code)
+		w.Header().Set("Content-Type", "application/json")
+		w.Write(body)
+	}))
+}
+
+func buildConcurrentServer(code int, t *testing.T, a func(r *http.Request)) *httptest.Server {
+	var resp []byte
+	var err error
+
+	return httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		a(r)
+		w.WriteHeader(code)
+		w.Header().Set("Content-Type", "application/json")
+
+		if ops % 2 == 0 {
+			resp, err = buildGoodResponse("")
+			if err != nil {
+				t.Fatalf("%s is not nil", err)
+			}
+		} else {
+			resp, err = buildInternalServerErrorResponse("")
+			if err != nil {
+				t.Fatalf("%s is not nil", err)
+			}
+		}
+		w.Write(resp)
+	}))
 }
 
 func TestGetKey(t *testing.T) {
@@ -315,5 +355,36 @@ func TestPutAccess(t *testing.T) {
 	err = cli.PutAccess("testkey", a)
 	if err != nil {
 		t.Fatalf("%s is not nil", err)
+	}
+}
+
+func TestConcurrentDeletes(t *testing.T) {
+	srv := buildConcurrentServer(200, t, func(r *http.Request) {
+		if r.Method != "DELETE" {
+			t.Fatalf("%s is not DELETE", r.Method)
+		}
+		if r.URL.Path != "/v0/keys/testkey1/" &&
+				r.URL.Path != "/v0/keys/testkey2/" {
+			t.Fatalf("%s is not the path for testkey1 or testkey2", r.URL.Path)
+		}
+		atomic.AddUint64(&ops, 1)
+	})
+	defer srv.Close()
+
+	cli := MockClient(srv.Listener.Addr().String())
+
+  // Delete 2 independent keys in succession.
+	err := cli.DeleteKey("testkey1")
+	if err != nil {
+		t.Fatalf("%s is not nil", err)
+	}
+	err = cli.DeleteKey("testkey2")
+	if err != nil {
+		t.Fatalf("%s is not nil", err)
+	}
+
+	// Verify that our atomic counter was incremented 4 times (2 attempts each)
+	if ops != 4 {
+		t.Fatalf("%d total client attempts is not 4", ops)
 	}
 }

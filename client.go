@@ -316,7 +316,7 @@ func (c *HTTPClient) getHTTPData(method string, path string, body url.Values, da
 			return err
 		}
 		if resp.Status != "ok" {
-			if (resp.Message != "Internal Server Error") || (i == maxRetryAttempts) {
+			if (resp.Code != InternalServerErrorCode) || (i == maxRetryAttempts) {
 				return fmt.Errorf(resp.Message)
 			}
 			time.Sleep(GetBackoffDuration(i))

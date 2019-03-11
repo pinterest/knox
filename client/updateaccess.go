@@ -25,7 +25,7 @@ Access will add or change the acl on a key by adding a specific access control r
 -U: A specific user. The principal should be set to the ldap username of the user.
 -G: A specific user group. The principal should be set to the group name. This takes the format of ou=Security,ou=Prod,ou=groups,dc=pinterest,dc=com in LDAP.
 -P: A machine hostname prefix. Prefix matching will be used to determine access. For example, if the principal is set to 'auth' then 'auth004' would match (and so would any hostname beginning with auth).
--S: A specifc service. The principal should be set to the exact Spiffe ID. For example, spiffe://example.com/service
+-S: A specific service. The principal should be set to the exact Spiffe ID. For example, spiffe://example.com/service
 
 This command requires admin access to the key.
 

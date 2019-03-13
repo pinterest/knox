@@ -1,6 +1,7 @@
 package knox_test
 
 import (
+	"bytes"
 	"encoding/json"
 	"testing"
 
@@ -175,6 +176,29 @@ func TestVersionStatusMarshaling(t *testing.T) {
 	unmarshalErr := invalid.UnmarshalJSON([]byte("ThisInputIsNotValid"))
 	if unmarshalErr == nil {
 		t.Error("Unmarshaled invalid string")
+	}
+}
+func TestKeyPathMarhaling(t *testing.T) {
+	key := Key{
+		ID:          "test",
+		ACL:         ACL([]Access{}),
+		VersionList: KeyVersionList{},
+		VersionHash: "VersionHash",
+	}
+
+	out, err := json.Marshal(key)
+	if err != nil {
+		t.Errorf("Failed to marshal key: %v", err)
+	} else if bytes.Contains(out, []byte("path")) {
+		t.Errorf("Found unexpected 'path' key in JSON output")
+	}
+
+	key.Path = "/var/lib/knox/v0/keys/test:test"
+	out, err = json.Marshal(key)
+	if err != nil {
+		t.Errorf("Failed to marshal key: %v", err)
+	} else if !bytes.Contains(out, []byte("path")) {
+		t.Errorf("Expected 'path' key in JSON output")
 	}
 }
 

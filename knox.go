@@ -285,6 +285,7 @@ type Key struct {
 	ACL         ACL            `json:"acl"`
 	VersionList KeyVersionList `json:"versions"`
 	VersionHash string         `json:"hash"`
+	Path        string         `json:"path,omitempty"`
 }
 
 // Validate calls makes sure all attributes of key are in good state.

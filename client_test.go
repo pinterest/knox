@@ -111,7 +111,9 @@ func TestGetKey(t *testing.T) {
 	if k.VersionHash != expected.VersionHash {
 		t.Fatalf("%s does not equal %s", k.VersionHash, expected.VersionHash)
 	}
-
+	if k.Path != "" {
+		t.Fatalf("path '%v' is not empty", k.Path)
+	}
 }
 
 func TestGetKeys(t *testing.T) {

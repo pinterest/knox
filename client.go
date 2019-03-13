@@ -169,11 +169,12 @@ func (c *HTTPClient) CacheGetKey(keyID string) (*Key, error) {
 	if c.KeyFolder == "" {
 		return nil, fmt.Errorf("No folder set for cached key.")
 	}
-	b, err := ioutil.ReadFile(c.KeyFolder + keyID)
+	path := c.KeyFolder + keyID
+	b, err := ioutil.ReadFile(path)
 	if err != nil {
 		return nil, err
 	}
-	k := Key{}
+	k := Key{Path: path}
 	err = json.Unmarshal(b, &k)
 	if err != nil {
 		return nil, err

@@ -229,6 +229,10 @@ func (d daemon) keyFilename(id string) string {
 	return path.Join(d.dir, d.keysDir, id)
 }
 
+func (d daemon) tmpFilename(id string) string {
+	return path.Join(d.dir, fmt.Sprintf(".%s.tmp", keyID))
+}
+
 func (d daemon) processKey(keyID string) error {
 	key, err := d.cli.NetworkGetKey(keyID)
 	if err != nil {
@@ -242,11 +246,14 @@ func (d daemon) processKey(keyID string) error {
 	if err != nil {
 		return fmt.Errorf("Error marshalling key %s: %s", keyID, err.Error())
 	}
-	err = ioutil.WriteFile(d.keyFilename(keyID), b, defaultFilePermission)
+	err = ioutil.WriteFile(d.tmpFilename(keyID), b, defaultFilePermission)
 	if err != nil {
 		return fmt.Errorf("Error writing key %s to file: %s", keyID, err.Error())
 	}
-
+	err = os.Rename(d.tmpFilename(keyID), d.keyFilename(keyID))
+	if err != nil {
+		return fmt.Errorf("Error renaming key %s temporary file: %s", keyID, err.Error())
+	}
 	err = os.Chmod(d.keyFilename(keyID), defaultFilePermission)
 	if err != nil {
 		return fmt.Errorf("Failed to open up key file permissions: %s", err.Error())

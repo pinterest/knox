@@ -230,7 +230,7 @@ func (d daemon) keyFilename(id string) string {
 }
 
 func (d daemon) tmpFilename(id string) string {
-	return path.Join(d.dir, fmt.Sprintf(".%s.tmp", keyID))
+	return path.Join(d.dir, fmt.Sprintf(".%s.tmp", id))
 }
 
 func (d daemon) processKey(keyID string) error {

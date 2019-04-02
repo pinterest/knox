@@ -20,8 +20,8 @@ const refresh = 10 * time.Second
 
 // For linear random backoff on write requests.
 const baseBackoff = 50 * time.Millisecond
-const maxBackoff = 3 * time.Second
-const maxRetryAttempts = 3
+const maxBackoff = 5 * time.Second
+const maxRetryAttempts = 5
 
 // Client is an interface for interacting with a specific knox key
 type Client interface {

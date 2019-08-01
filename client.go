@@ -13,6 +13,7 @@ import (
 	"net/url"
 	"os"
 	"os/exec"
+	"sync"
 	"time"
 )
 
@@ -34,6 +35,7 @@ type Client interface {
 }
 
 type fileClient struct {
+	sync.RWMutex
 	keyID   string
 	primary string
 	active  []string
@@ -56,6 +58,8 @@ func (c *fileClient) update() error {
 }
 
 func (c *fileClient) setValues(key *Key) {
+	c.Lock()
+	defer c.Unlock()
 	c.primary = string(key.VersionList.GetPrimary().Data)
 	ks := key.VersionList.GetActive()
 	c.active = make([]string, len(ks))
@@ -65,10 +69,14 @@ func (c *fileClient) setValues(key *Key) {
 }
 
 func (c *fileClient) GetPrimary() string {
+	c.RLock()
+	defer c.RUnlock()
 	return c.primary
 }
 
 func (c *fileClient) GetActive() []string {
+	c.RLock()
+	defer c.RUnlock()
 	return c.active
 }
 

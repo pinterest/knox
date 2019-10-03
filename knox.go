@@ -12,9 +12,9 @@ import (
 )
 
 var (
-	ErrACLDuplicateEntries = fmt.Errorf("Duplicate entries in ACL")
-	ErrACLContainsNone     = fmt.Errorf("ACL contains None access")
-	ErrACLEmptyMachinePrefix = fmt.Errorf("MachinePrefix cannot be empty while adding Read, Write, or Admin access.") 
+	ErrACLDuplicateEntries   = fmt.Errorf("Duplicate entries in ACL")
+	ErrACLContainsNone       = fmt.Errorf("ACL contains None access")
+	ErrACLEmptyMachinePrefix = fmt.Errorf("MachinePrefix cannot be empty while adding Read, Write, or Admin access.")
 
 	ErrInvalidKeyID       = fmt.Errorf("KeyID can only contain alphanumeric characters, colons, and underscores.")
 	ErrInvalidVersionHash = fmt.Errorf("Hash does not match")

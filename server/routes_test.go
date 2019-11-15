@@ -173,6 +173,9 @@ func TestGetKey(t *testing.T) {
 		if k.ID != "a1" {
 			t.Fatalf("Expected ID to be a1 not %s", k.ID)
 		}
+		if len(k.ACL) != 0 {
+			t.Fatalf("Expected key acl to be empty")
+		}
 		if len(k.VersionList) != 1 {
 			t.Fatalf("Expected len to be 1 not %d", len(k.VersionList))
 		}
@@ -189,6 +192,9 @@ func TestGetKey(t *testing.T) {
 		if k.ID != "a1" {
 			t.Fatalf("Expected ID to be a1 not %s", k.ID)
 		}
+		if len(k.ACL) != 0 {
+			t.Fatalf("Expected key acl to be empty")
+		}
 		if len(k.VersionList) != 1 {
 			t.Fatalf("Expected len to be 1 not %d", len(k.VersionList))
 		}
@@ -204,6 +210,9 @@ func TestGetKey(t *testing.T) {
 	case *knox.Key:
 		if k.ID != "a1" {
 			t.Fatalf("Expected ID to be a1 not %s", k.ID)
+		}
+		if len(k.ACL) != 0 {
+			t.Fatalf("Expected key acl to be empty")
 		}
 		if len(k.VersionList) != 1 {
 			t.Fatalf("Expected len to be 1 not %d", len(k.VersionList))
@@ -360,23 +369,23 @@ func TestPutAccess(t *testing.T) {
 		t.Fatalf("%+v is not nil", err)
 	}
 
-	//Tests for setting ACLs with empty machinePrefix  
+	//Tests for setting ACLs with empty machinePrefix
 	//Should return error when used with AccessType Read,Write, or Admin
 	//Should return success when used with AccessType None(useful for revoking such existing ACLs)
-	accessTypes := []knox.AccessType{knox.None,knox.Read,knox.Write,knox.Admin}
-	for  _,accessType := range accessTypes{
-	    access = &knox.Access{Type: knox.MachinePrefix, ID: "", AccessType: accessType}
-	    accessJSON, jerr = json.Marshal(access)
-	    if jerr != nil {
-	    	t.Fatalf("%+v is not nil", jerr)
-	    }
-	    _, err = putAccessHandler(m, u, map[string]string{"keyID": "a1", "access": string(accessJSON)})
-	    if err == nil && accessType != knox.None{
-                  t.Fatal("Expected err") 
-	    } else if err != nil && accessType == knox.None{
-                  t.Fatalf("%+v is not nil",err)
-	    }
-        }
+	accessTypes := []knox.AccessType{knox.None, knox.Read, knox.Write, knox.Admin}
+	for _, accessType := range accessTypes {
+		access = &knox.Access{Type: knox.MachinePrefix, ID: "", AccessType: accessType}
+		accessJSON, jerr = json.Marshal(access)
+		if jerr != nil {
+			t.Fatalf("%+v is not nil", jerr)
+		}
+		_, err = putAccessHandler(m, u, map[string]string{"keyID": "a1", "access": string(accessJSON)})
+		if err == nil && accessType != knox.None {
+			t.Fatal("Expected err")
+		} else if err != nil && accessType == knox.None {
+			t.Fatalf("%+v is not nil", err)
+		}
+	}
 
 }
 

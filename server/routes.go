@@ -209,6 +209,8 @@ func getKeyHandler(m KeyManager, principal knox.Principal, parameters map[string
 	if !principal.CanAccess(key.ACL, knox.Read) {
 		return nil, errF(knox.UnauthorizedCode, "")
 	}
+	// Zero ACL for key response, in order to avoid caching unnecessarily
+	key.ACL = knox.ACL{}
 	return key, nil
 }
 
@@ -302,8 +304,8 @@ func putAccessHandler(m KeyManager, principal knox.Principal, parameters map[str
 
 	//Deny addition of ACLS with empty MachinePrefix for Read,Write,and Admin AccessType
 	//Empty MachinePrefix is allowed with None AccessType for revoking existing ACLS
-	if access.Type == knox.MachinePrefix  && access.ID == "" && access.AccessType != knox.None{
-                return nil, errF(knox.BadRequestDataCode,knox.ErrACLEmptyMachinePrefix.Error())
+	if access.Type == knox.MachinePrefix && access.ID == "" && access.AccessType != knox.None {
+		return nil, errF(knox.BadRequestDataCode, knox.ErrACLEmptyMachinePrefix.Error())
 	}
 
 	// Update Access

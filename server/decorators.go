@@ -45,7 +45,8 @@ func setPrincipal(r *http.Request, val knox.Principal) {
 	context.Set(r, principalContext, val)
 }
 
-func getParams(r *http.Request) map[string]string {
+// GetParams gets the parameters for the request through the parameters context.
+func GetParams(r *http.Request) map[string]string {
 	if rv := context.Get(r, paramsContext); rv != nil {
 		return rv.(map[string]string)
 	}
@@ -95,7 +96,7 @@ func Logger(logger *log.Logger) func(http.HandlerFunc) http.HandlerFunc {
 		return func(w http.ResponseWriter, r *http.Request) {
 			f(w, r)
 			p := GetPrincipal(r)
-			params := getParams(r)
+			params := GetParams(r)
 			apiError := GetAPIError(r)
 			e := &reqLog{
 				Type:       "access",

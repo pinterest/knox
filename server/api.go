@@ -189,7 +189,7 @@ func writeData(w http.ResponseWriter, data interface{}) {
 func (r route) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	db := getDB(req)
 	principal := GetPrincipal(req)
-	ps := getParams(req)
+	ps := GetParams(req)
 	data, err := r.handler(db, principal, ps)
 
 	if err != nil {

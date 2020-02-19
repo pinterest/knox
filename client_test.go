@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"sync/atomic"
 	"testing"
 )
@@ -11,13 +12,16 @@ import (
 func TestMockClient(t *testing.T) {
 	p := "primary"
 	a := []string{"active1", "active2"}
-	k := NewMock(p, a)
-	p1 := k.GetPrimary()
-	//k1 := k.GetKeyObject()
+	k0 := Key{
+		VersionList: []KeyVersion{
+			KeyVersion{Data: []byte(p), Status: Primary}, KeyVersion{Data: []byte(a[0]), Status: Active}, KeyVersion{Data: []byte(a[1]), Status: Active}}}
+
+	m := NewMock(p, a)
+	p1 := m.GetPrimary()
 	if p1 != p {
 		t.Fatalf("Expected %s : Got %s for primary key", p, p1)
 	}
-	r := k.GetActive()
+	r := m.GetActive()
 	if len(r) != len(a) {
 		t.Fatalf("For active keys: length %d should equal length %d", len(r), len(a))
 	}
@@ -26,6 +30,11 @@ func TestMockClient(t *testing.T) {
 			t.Fatalf("%s should equal %s", r[i], a[i])
 		}
 	}
+	k1 := m.GetKeyObject()
+	if !reflect.DeepEqual(k0, k1) {
+		t.Fatalf("Got %v, Want %v", k1, k0)
+	}
+
 }
 
 func buildGoodResponse(data interface{}) ([]byte, error) {

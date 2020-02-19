@@ -32,7 +32,7 @@ type Client interface {
 	// GetActive returns all of the active key versions for the knox key.
 	// This should be used for receiving relationships like verifying or decrypting.
 	GetActive() []string
-	//GetKeyObject returns the full key object, including versions, ACLs, and other attributes.
+	// GetKeyObject returns the full key object, including versions, ACLs, and other attributes.
 	GetKeyObject() Key
 }
 
@@ -88,7 +88,6 @@ func (c *fileClient) GetKeyObject() Key {
 	c.RLock()
 	defer c.RUnlock()
 	return c.keyObject
-
 }
 
 // NewFileClient creates a file watcher knox client for the keyID given (it refreshes every ten seconds).
@@ -116,7 +115,7 @@ func NewFileClient(keyID string) (Client, error) {
 	return c, nil
 }
 
-//Creates a mockKeyVersion to be used for testing
+// NewMockKeyVersion creates a Knox KeyVersion to be used for testing
 func NewMockKeyVersion(keydata []byte, status VersionStatus) KeyVersion {
 	return KeyVersion{Data: keydata, Status: status}
 }

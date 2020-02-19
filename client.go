@@ -32,13 +32,16 @@ type Client interface {
 	// GetActive returns all of the active key versions for the knox key.
 	// This should be used for receiving relationships like verifying or decrypting.
 	GetActive() []string
+	//Get knox Key Object. The Key Object returned can be further used to query versionIDs, ACLs, and other attributes
+	GetKeyObject() Key
 }
 
 type fileClient struct {
 	sync.RWMutex
-	keyID   string
-	primary string
-	active  []string
+	keyID     string
+	primary   string
+	active    []string
+	keyObject Key
 }
 
 // update reads the file from a specific location, decodes json, and updates the key in memory.
@@ -60,6 +63,7 @@ func (c *fileClient) update() error {
 func (c *fileClient) setValues(key *Key) {
 	c.Lock()
 	defer c.Unlock()
+	c.keyObject = *key
 	c.primary = string(key.VersionList.GetPrimary().Data)
 	ks := key.VersionList.GetActive()
 	c.active = make([]string, len(ks))
@@ -78,6 +82,13 @@ func (c *fileClient) GetActive() []string {
 	c.RLock()
 	defer c.RUnlock()
 	return c.active
+}
+
+func (c *fileClient) GetKeyObject() Key {
+	c.RLock()
+	defer c.RUnlock()
+	return c.keyObject
+
 }
 
 // NewFileClient creates a file watcher knox client for the keyID given (it refreshes every ten seconds).
@@ -105,9 +116,20 @@ func NewFileClient(keyID string) (Client, error) {
 	return c, nil
 }
 
+//Creates a mockKeyVersion to be used for testing
+func NewMockKeyVersion(keydata []byte, status VersionStatus) KeyVersion {
+	return KeyVersion{Data: keydata, Status: status}
+}
+
 // NewMock is a knox Client to be used for testing.
 func NewMock(primary string, active []string) Client {
-	return &fileClient{primary: primary, active: active}
+	var kvl []KeyVersion
+	kvl = append(kvl, NewMockKeyVersion([]byte(primary), Primary))
+	for _, data := range active {
+		kvl = append(kvl, NewMockKeyVersion([]byte(data), Active))
+	}
+
+	return &fileClient{primary: primary, active: active, keyObject: Key{VersionList: KeyVersionList(kvl)}}
 }
 
 // Register registers the given keyName with knox. If the operation fails, it returns an error.

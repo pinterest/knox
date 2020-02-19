@@ -13,6 +13,7 @@ func TestMockClient(t *testing.T) {
 	a := []string{"active1", "active2"}
 	k := NewMock(p, a)
 	p1 := k.GetPrimary()
+	//k1 := k.GetKeyObject()
 	if p1 != p {
 		t.Fatalf("Expected %s : Got %s for primary key", p, p1)
 	}

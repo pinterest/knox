@@ -32,7 +32,7 @@ type Client interface {
 	// GetActive returns all of the active key versions for the knox key.
 	// This should be used for receiving relationships like verifying or decrypting.
 	GetActive() []string
-	//Get knox Key Object. The Key Object returned can be further used to query versionIDs, ACLs, and other attributes
+	//GetKeyObject returns the full key object, including versions, ACLs, and other attributes.
 	GetKeyObject() Key
 }
 

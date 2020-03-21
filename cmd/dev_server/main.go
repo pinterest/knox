@@ -81,6 +81,7 @@ func main() {
 			auth.NewMTLSAuthProvider(certPool),
 			auth.NewGitHubProvider(authTimeout),
 			auth.NewSpiffeAuthProvider(certPool),
+			auth.NewSpiffeAuthFallbackProvider(certPool),
 		}),
 	}
 

@@ -146,9 +146,21 @@ type SpiffeFallbackProvider struct {
 	SpiffeProvider
 }
 
+// NewSpiffeAuthFallbackProvider initializes a chain of trust with given CA certificates,
+// identical to the SpiffeProvider except the Type is defined as the MTLSAuthProvider
+// Type().
+func NewSpiffeAuthFallbackProvider(CAs *x509.CertPool) *SpiffeFallbackProvider {
+	return &SpiffeFallbackProvider{
+		SpiffeProvider: SpiffeProvider{
+			CAs:  CAs,
+			time: time.Now,
+		},
+	}
+}
+
 // Type is set to be identical to the Type of the MTLSAuthProvider
-func (s *SpiffeFallbackProvider) Type() {
-	return MTLSAuthProvider{}.Type()
+func (s *SpiffeFallbackProvider) Type() byte {
+	return (&MTLSAuthProvider{}).Type()
 }
 
 // GitHubProvider implements user authentication through github.com

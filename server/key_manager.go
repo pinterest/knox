@@ -14,7 +14,7 @@ type KeyManager interface {
 	GetKey(id string, status knox.VersionStatus) (*knox.Key, error)
 	AddNewKey(*knox.Key) error
 	DeleteKey(id string) error
-	UpdateAccess(string, knox.Access) error
+	UpdateAccess(string, ...knox.Access) error
 	AddVersion(string, *knox.KeyVersion) error
 	UpdateVersion(keyID string, versionID uint64, s knox.VersionStatus) error
 }
@@ -93,14 +93,15 @@ func (m *keyManager) DeleteKey(id string) error {
 	return m.db.Remove(id)
 }
 
-func (m *keyManager) UpdateAccess(id string, a knox.Access) error {
+func (m *keyManager) UpdateAccess(id string, acl ...knox.Access) error {
 	encK, err := m.db.Get(id)
 	if err != nil {
 		return err
 	}
 	newEncK := encK.Copy()
-
-	newEncK.ACL = newEncK.ACL.Add(a)
+	for _, a := range acl {
+		newEncK.ACL = newEncK.ACL.Add(a)
+	}
 	err = newEncK.ACL.Validate()
 	if err != nil {
 		return err

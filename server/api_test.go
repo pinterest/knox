@@ -146,7 +146,7 @@ func checkinternalServerErrorResponse(t *testing.T, w *httptest.ResponseRecorder
 	if resp.Code != knox.InternalServerErrorCode {
 		t.Fatal("unexpected error code")
 	}
-	if resp.Message != HTTPErrMap[knox.InternalServerErrorCode].Message {
+	if resp.Message != "" {
 		t.Fatal("Wrong message")
 	}
 	if resp.Host == "" {

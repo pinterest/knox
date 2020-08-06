@@ -160,7 +160,7 @@ type APIClient interface {
 	GetKeys(keys map[string]string) ([]string, error)
 	DeleteKey(keyID string) error
 	GetACL(keyID string) (*ACL, error)
-	PutAccess(keyID string, a *Access) error
+	PutAccess(keyID string, acl ...Access) error
 	AddVersion(keyID string, data []byte) (uint64, error)
 	UpdateVersion(keyID, versionID string, status VersionStatus) error
 	CacheGetKey(keyID string) (*Key, error)
@@ -321,13 +321,13 @@ func (c *HTTPClient) GetACL(keyID string) (*ACL, error) {
 }
 
 // PutAccess will add an ACL rule to a specific key.
-func (c *HTTPClient) PutAccess(keyID string, a *Access) error {
+func (c *HTTPClient) PutAccess(keyID string, a ...Access) error {
 	d := url.Values{}
 	s, err := json.Marshal(a)
 	if err != nil {
 		return err
 	}
-	d.Set("access", string(s))
+	d.Set("acl", string(s))
 	err = c.getHTTPData("PUT", "/v0/keys/"+keyID+"/access/", d, nil)
 	return err
 }

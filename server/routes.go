@@ -68,6 +68,7 @@ var routes = [...]route{
 		parameters: []parameter{
 			urlParameter("keyID"),
 			postParameter("access"),
+			postParameter("acl"),
 		},
 	},
 	route{
@@ -264,28 +265,43 @@ func getAccessHandler(m KeyManager, principal knox.Principal, parameters map[str
 
 // putAccessHandler adds or updates the existing ACL with an Access object
 // This object is input as base64 encoded json encoded form data
+// access is used for a single access rule and acl is used for multiple rules
+// existing access rules will not be modified unless the same Type and Name is used
 // The route for this handler is PUT /v0/keys/<key_id>/access/
 // The principal needs Admin access.
 func putAccessHandler(m KeyManager, principal knox.Principal, parameters map[string]string) (interface{}, *httpError) {
 	keyID := parameters["keyID"]
 
 	accessStr, accessOK := parameters["access"]
-	if !accessOK {
-		return nil, errF(knox.BadRequestDataCode, "")
-	}
-	access := knox.Access{}
+	aclStr, aclOK := parameters["acl"]
 
-	// If JSON decode fails, try a base64 encoded JSON string (both options are around for backwards compatibility)
-	jsonErr := json.Unmarshal([]byte(accessStr), &access)
-	if jsonErr != nil {
-		decodedData, decodeErr := base64.RawURLEncoding.DecodeString(accessStr)
+	acl := []knox.Access{}
+	if accessOK {
+		access := knox.Access{}
+		// If JSON decode fails, try a base64 encoded JSON string (both options are around for backwards compatibility)
+		jsonErr := json.Unmarshal([]byte(accessStr), &access)
+		if jsonErr != nil {
+			decodedData, decodeErr := base64.RawURLEncoding.DecodeString(accessStr)
+			if decodeErr != nil {
+				return nil, errF(knox.BadRequestDataCode, decodeErr.Error())
+			}
+			jsonErr := json.Unmarshal(decodedData, &access)
+			if jsonErr != nil {
+				return nil, errF(knox.BadRequestDataCode, jsonErr.Error())
+			}
+		}
+		acl = append(acl, access)
+	} else if aclOK {
+		decodedData, decodeErr := base64.RawURLEncoding.DecodeString(aclStr)
 		if decodeErr != nil {
 			return nil, errF(knox.BadRequestDataCode, decodeErr.Error())
 		}
-		jsonErr := json.Unmarshal(decodedData, &access)
+		jsonErr := json.Unmarshal(decodedData, &acl)
 		if jsonErr != nil {
 			return nil, errF(knox.BadRequestDataCode, jsonErr.Error())
 		}
+	} else {
+		return nil, errF(knox.BadRequestDataCode, "Missing acl and access parameters")
 	}
 
 	// Get the Key
@@ -302,19 +318,21 @@ func putAccessHandler(m KeyManager, principal knox.Principal, parameters map[str
 		return nil, errF(knox.UnauthorizedCode, "")
 	}
 
-	// If access type change is not "None" (i.e. we're adding, not deleting, an ACL entry) then
-	// we apply validation on the ID string to make sure it conforms to the expectations of the
-	// particular principal type. We do this to block empty machines prefixes and other invalid
-	// or bad entries.
-	if access.AccessType != knox.None {
-		principalErr := access.Type.IsValidPrincipal(access.ID, extraPrincipalValidators)
-		if principalErr != nil {
-			return nil, errF(knox.BadPrincipalIdentifier, principalErr.Error())
+	for _, access := range acl {
+		// If access type change is not "None" (i.e. we're adding, not deleting, an ACL entry) then
+		// we apply validation on the ID string to make sure it conforms to the expectations of the
+		// particular principal type. We do this to block empty machines prefixes and other invalid
+		// or bad entries.
+		if access.AccessType != knox.None {
+			principalErr := access.Type.IsValidPrincipal(access.ID, extraPrincipalValidators)
+			if principalErr != nil {
+				return nil, errF(knox.BadPrincipalIdentifier, principalErr.Error())
+			}
 		}
 	}
 
 	// Update Access
-	updateErr := m.UpdateAccess(keyID, access)
+	updateErr := m.UpdateAccess(keyID, acl...)
 	if updateErr != nil {
 		return nil, errF(knox.InternalServerErrorCode, updateErr.Error())
 	}

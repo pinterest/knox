@@ -322,7 +322,7 @@ func TestPutAccess(t *testing.T) {
 			t.Fatalf("%s is not %s", r.URL.Path, "/v0/keys/testkey/access/")
 		}
 		r.ParseForm()
-		if r.PostForm["access"][0] == "" {
+		if r.PostForm["acl"][0] == "" {
 			t.Fatalf("%s is empty", r.PostForm["access"][0])
 		}
 	})
@@ -330,13 +330,13 @@ func TestPutAccess(t *testing.T) {
 
 	cli := MockClient(srv.Listener.Addr().String())
 
-	a := &Access{
+	a := Access{
 		Type:       User,
 		AccessType: Read,
 		ID:         "test",
 	}
 
-	badA := &Access{
+	badA := Access{
 		Type:       233,
 		AccessType: 80927,
 		ID:         "test",

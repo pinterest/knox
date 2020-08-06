@@ -473,10 +473,10 @@ func TestKeyAccessUpdatesWithPrincipalValidation(t *testing.T) {
 
 	// Should be *not valid* for user with bad id
 	access = knox.Access{ID: invalidPrincipalID, Type: knox.User, AccessType: knox.Read}
-	putAccessExpectedFailure(t, keyID, &access, "Invalid principal identifier")
+	putAccessExpectedFailure(t, keyID, &access, "Invalid user: "+invalidPrincipalID)
 
 	// Should be *not valid* for user service with bad SPIFFE ID, even though
 	// we don't have a special extra validator for it (validation is built-in)
 	access = knox.Access{ID: "https://ahoy", Type: knox.Service, AccessType: knox.Read}
-	putAccessExpectedFailure(t, keyID, &access, "Invalid principal identifier")
+	putAccessExpectedFailure(t, keyID, &access, "Service prefix is invalid URL, must conform to 'spiffe://<domain>/<path>/' format.")
 }

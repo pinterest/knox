@@ -1,7 +1,9 @@
 package client
 
 import (
+	"encoding/json"
 	"fmt"
+	"io/ioutil"
 
 	"github.com/pinterest/knox"
 )
@@ -11,7 +13,7 @@ func init() {
 }
 
 var cmdUpdateAccess = &Command{
-	UsageLine: "access {-n|-r|-w|-a} {-M|-U|-G|-P} <key_identifier> <principal>",
+	UsageLine: "access (-acl <file> <key_identifier> | {-n|-r|-w|-a} {-M|-U|-G|-P} <key_identifier> <principal>)",
 	Short:     "access modifies the acl of a key",
 	Long: `
 Access will add or change the acl on a key by adding a specific access control rule.
@@ -36,6 +38,8 @@ See also: knox create, knox get
 	`,
 }
 
+var updateAccessACL = cmdUpdateAccess.Flag.String("acl", "", "")
+
 var updateAccessNone = cmdUpdateAccess.Flag.Bool("n", false, "")
 var updateAccessRead = cmdUpdateAccess.Flag.Bool("r", false, "")
 var updateAccessWrite = cmdUpdateAccess.Flag.Bool("w", false, "")
@@ -49,6 +53,26 @@ var updateAccessService = cmdUpdateAccess.Flag.Bool("S", false, "")
 var updateAccessServicePrefix = cmdUpdateAccess.Flag.Bool("N", false, "")
 
 func runUpdateAccess(cmd *Command, args []string) {
+	if *updateAccessACL != "" {
+		if len(args) != 1 {
+			fatalf("access takes exactly one arguments. See 'knox help access'")
+		}
+		keyID := args[0]
+		b, err := ioutil.ReadFile(*updateAccessACL)
+		if err != nil {
+			fatalf("Could not read acl file %s", err.Error())
+		}
+		acl := []knox.Access{}
+		err = json.Unmarshal(b, &acl)
+		if err != nil {
+			fatalf("Could not decode access list properly %s", err.Error())
+		}
+		err = cli.PutAccess(keyID, acl...)
+		if err != nil {
+			fatalf("Failed to update access: %s", err.Error())
+		}
+		fmt.Println("Successfully updated Access")
+	}
 	if len(args) != 2 {
 		fatalf("access takes exactly two arguments. See 'knox help access'")
 	}
@@ -84,7 +108,7 @@ func runUpdateAccess(cmd *Command, args []string) {
 	default:
 		fatalf("access requires {-M|-U|-G|-P|-S|-N}. See 'knox help access'")
 	}
-	err := cli.PutAccess(keyID, &access)
+	err := cli.PutAccess(keyID, access)
 	if err != nil {
 		fatalf("Failed to update access: %s", err.Error())
 	}

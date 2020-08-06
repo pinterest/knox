@@ -27,3 +27,9 @@ jobs:
 
     - name: Test
       run: go test -v ./...
+
+    - name: Fmt
+      run: diff -u <(echo -n) <(gofmt -d -s .)
+
+    - name: vet
+      run: go vet ./...

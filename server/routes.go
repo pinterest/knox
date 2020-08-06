@@ -292,11 +292,7 @@ func putAccessHandler(m KeyManager, principal knox.Principal, parameters map[str
 		}
 		acl = append(acl, access)
 	} else if aclOK {
-		decodedData, decodeErr := base64.RawURLEncoding.DecodeString(aclStr)
-		if decodeErr != nil {
-			return nil, errF(knox.BadRequestDataCode, decodeErr.Error())
-		}
-		jsonErr := json.Unmarshal(decodedData, &acl)
+		jsonErr := json.Unmarshal([]byte(aclStr), &acl)
 		if jsonErr != nil {
 			return nil, errF(knox.BadRequestDataCode, jsonErr.Error())
 		}

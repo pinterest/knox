@@ -18,6 +18,8 @@ var cmdUpdateAccess = &Command{
 	Long: `
 Access will add or change the acl on a key by adding a specific access control rule.
 
+-acl: Takes in a filename with a JSON formatted list of access rules
+
 -n: This will update the key so that the given principal has no access. Please note that if there is another rule that gives access that will take precedence.
 -r: This will grant the principal read access to the key. They will be able to read the keys data.
 -w: This will grant the principal write access to the key. They will be able to rotate keys in addition to all read permissions.
@@ -72,6 +74,7 @@ func runUpdateAccess(cmd *Command, args []string) {
 			fatalf("Failed to update access: %s", err.Error())
 		}
 		fmt.Println("Successfully updated Access")
+		return
 	}
 	if len(args) != 2 {
 		fatalf("access takes exactly two arguments. See 'knox help access'")

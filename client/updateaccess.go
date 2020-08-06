@@ -57,7 +57,7 @@ var updateAccessServicePrefix = cmdUpdateAccess.Flag.Bool("N", false, "")
 func runUpdateAccess(cmd *Command, args []string) {
 	if *updateAccessACL != "" {
 		if len(args) != 1 {
-			fatalf("access takes exactly one arguments. See 'knox help access'")
+			fatalf("access takes one argument when used with --acl. See 'knox help access'")
 		}
 		keyID := args[0]
 		b, err := ioutil.ReadFile(*updateAccessACL)

@@ -12,7 +12,7 @@ import (
 )
 
 var routes = [...]route{
-	route{
+	{
 		method:  "GET",
 		id:      "getkeys",
 		path:    "/v0/keys/",
@@ -21,7 +21,7 @@ var routes = [...]route{
 			rawQueryParameter("queryString"),
 		},
 	},
-	route{
+	{
 		method:  "POST",
 		id:      "postkeys",
 		path:    "/v0/keys/",
@@ -33,7 +33,7 @@ var routes = [...]route{
 		},
 	},
 
-	route{
+	{
 		method:  "GET",
 		id:      "getkey",
 		path:    "/v0/keys/{keyID}/",
@@ -43,7 +43,7 @@ var routes = [...]route{
 			queryParameter("status"),
 		},
 	},
-	route{
+	{
 		method:  "DELETE",
 		id:      "deletekey",
 		path:    "/v0/keys/{keyID}/",
@@ -52,7 +52,7 @@ var routes = [...]route{
 			urlParameter("keyID"),
 		},
 	},
-	route{
+	{
 		method:  "GET",
 		id:      "getaccess",
 		path:    "/v0/keys/{keyID}/access/",
@@ -61,7 +61,7 @@ var routes = [...]route{
 			urlParameter("keyID"),
 		},
 	},
-	route{
+	{
 		method:  "PUT",
 		id:      "putaccess",
 		path:    "/v0/keys/{keyID}/access/",
@@ -72,7 +72,7 @@ var routes = [...]route{
 			postParameter("acl"),
 		},
 	},
-	route{
+	{
 		method:  "POST",
 		id:      "postversion",
 		path:    "/v0/keys/{keyID}/versions/",
@@ -82,7 +82,7 @@ var routes = [...]route{
 			postParameter("data"),
 		},
 	},
-	route{
+	{
 		method:  "PUT",
 		id:      "putversion",
 		path:    "/v0/keys/{keyID}/versions/{versionID}/",

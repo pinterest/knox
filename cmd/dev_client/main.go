@@ -123,5 +123,5 @@ func main() {
 		Version:     client.GetVersion(),
 	}
 
-	client.Run(cli, &client.VisibilityParams{log.Printf, log.Printf, func(map[string]uint64) {}}, tokenEndpoint, clientID)
+	client.Run(cli, &client.VisibilityParams{Logf: log.Printf, Errorf: log.Printf, Metrics: func(map[string]uint64) {}}, tokenEndpoint, clientID)
 }

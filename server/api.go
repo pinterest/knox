@@ -33,19 +33,19 @@ type httpErrResp struct {
 
 // HTTPErrMap is a mapping from err subcodes to the http err response that will be returned.
 var HTTPErrMap = map[int]*httpErrResp{
-	knox.NoKeyIDCode:                   &httpErrResp{http.StatusBadRequest, "Missing Key ID"},
-	knox.InternalServerErrorCode:       &httpErrResp{http.StatusInternalServerError, "Internal Server Error"},
-	knox.KeyIdentifierExistsCode:       &httpErrResp{http.StatusBadRequest, "Key identifer exists"},
-	knox.KeyVersionDoesNotExistCode:    &httpErrResp{http.StatusNotFound, "Key version does not exist"},
-	knox.KeyIdentifierDoesNotExistCode: &httpErrResp{http.StatusNotFound, "Key identifer does not exist"},
-	knox.UnauthenticatedCode:           &httpErrResp{http.StatusUnauthorized, "User or machine is not authenticated"},
-	knox.UnauthorizedCode:              &httpErrResp{http.StatusForbidden, "User or machine not authorized"},
-	knox.NotYetImplementedCode:         &httpErrResp{http.StatusNotImplemented, "Not yet implemented"},
-	knox.NotFoundCode:                  &httpErrResp{http.StatusNotFound, "Route not found"},
-	knox.NoKeyDataCode:                 &httpErrResp{http.StatusBadRequest, "Missing Key Data"},
-	knox.BadRequestDataCode:            &httpErrResp{http.StatusBadRequest, "Bad request format"},
-	knox.BadKeyFormatCode:              &httpErrResp{http.StatusBadRequest, "Key ID contains unsupported characters"},
-	knox.BadPrincipalIdentifier:        &httpErrResp{http.StatusBadRequest, "Invalid principal identifier"},
+	knox.NoKeyIDCode:                   {http.StatusBadRequest, "Missing Key ID"},
+	knox.InternalServerErrorCode:       {http.StatusInternalServerError, "Internal Server Error"},
+	knox.KeyIdentifierExistsCode:       {http.StatusBadRequest, "Key identifer exists"},
+	knox.KeyVersionDoesNotExistCode:    {http.StatusNotFound, "Key version does not exist"},
+	knox.KeyIdentifierDoesNotExistCode: {http.StatusNotFound, "Key identifer does not exist"},
+	knox.UnauthenticatedCode:           {http.StatusUnauthorized, "User or machine is not authenticated"},
+	knox.UnauthorizedCode:              {http.StatusForbidden, "User or machine not authorized"},
+	knox.NotYetImplementedCode:         {http.StatusNotImplemented, "Not yet implemented"},
+	knox.NotFoundCode:                  {http.StatusNotFound, "Route not found"},
+	knox.NoKeyDataCode:                 {http.StatusBadRequest, "Missing Key Data"},
+	knox.BadRequestDataCode:            {http.StatusBadRequest, "Bad request format"},
+	knox.BadKeyFormatCode:              {http.StatusBadRequest, "Key ID contains unsupported characters"},
+	knox.BadPrincipalIdentifier:        {http.StatusBadRequest, "Invalid principal identifier"},
 }
 
 func combine(f, g func(http.HandlerFunc) http.HandlerFunc) func(http.HandlerFunc) http.HandlerFunc {

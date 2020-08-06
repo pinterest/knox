@@ -12,7 +12,7 @@ var testSecret = []byte("testtesttesttest")
 func makeTestKey() *knox.Key {
 	return &knox.Key{
 		ID:          "testID",
-		ACL:         knox.ACL([]knox.Access{knox.Access{Type: knox.User, ID: "testUser", AccessType: knox.Read}}),
+		ACL:         knox.ACL([]knox.Access{{Type: knox.User, ID: "testUser", AccessType: knox.Read}}),
 		VersionList: knox.KeyVersionList([]knox.KeyVersion{makeTestVersion()}),
 		VersionHash: "testHash",
 	}
@@ -73,7 +73,7 @@ func TestBadKeyData(t *testing.T) {
 		t.Fatal("error is nil for a bad key")
 	}
 
-	_, err = crypt.Decrypt(&DBKey{VersionList: []EncKeyVersion{EncKeyVersion{CryptoMetadata: []byte{0}}}})
+	_, err = crypt.Decrypt(&DBKey{VersionList: []EncKeyVersion{{CryptoMetadata: []byte{0}}}})
 	if err == nil {
 		t.Fatal("error is nil for bad data")
 	}

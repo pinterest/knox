@@ -320,7 +320,7 @@ func TestGetAccess(t *testing.T) {
 
 func TestPutAccess(t *testing.T) {
 	m, db := makeDB()
-	access := []knox.Access{knox.Access{Type: knox.Machine, ID: "MrRoboto", AccessType: knox.Read}}
+	access := []knox.Access{{Type: knox.Machine, ID: "MrRoboto", AccessType: knox.Read}}
 	accessJSON, jerr := json.Marshal(&access)
 	if jerr != nil {
 		t.Fatalf("%+v is not nil", jerr)
@@ -369,7 +369,7 @@ func TestPutAccess(t *testing.T) {
 	//Should return success when used with AccessType None(useful for revoking such existing ACLs)
 	accessTypes := []knox.AccessType{knox.None, knox.Read, knox.Write, knox.Admin}
 	for _, accessType := range accessTypes {
-		access = []knox.Access{knox.Access{Type: knox.MachinePrefix, ID: "", AccessType: accessType}}
+		access = []knox.Access{{Type: knox.MachinePrefix, ID: "", AccessType: accessType}}
 		accessJSON, jerr = json.Marshal(&access)
 		if jerr != nil {
 			t.Fatalf("%+v is not nil", jerr)

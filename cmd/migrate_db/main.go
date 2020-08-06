@@ -35,9 +35,9 @@ func moveKeyData(sDB keydb.DB, sCrypt keydb.Cryptor, dDB keydb.DB, dCrypt keydb.
 func generateTestDBWithKeys(crypt keydb.Cryptor) keydb.DB {
 	source := keydb.NewTempDB()
 	d := []byte("test")
-	v1 := knox.KeyVersion{1, d, knox.Primary, 10}
-	v2 := knox.KeyVersion{2, d, knox.Active, 10}
-	v3 := knox.KeyVersion{3, d, knox.Inactive, 10}
+	v1 := knox.KeyVersion{ID: 1, Data: d, Status: knox.Primary, CreationTime: 10}
+	v2 := knox.KeyVersion{ID: 2, Data: d, Status: knox.Active, CreationTime: 10}
+	v3 := knox.KeyVersion{ID: 3, Data: d, Status: knox.Inactive, CreationTime: 10}
 	validKVL := knox.KeyVersionList([]knox.KeyVersion{v1, v2, v3})
 
 	a1 := knox.Access{ID: "testmachine1", AccessType: knox.Admin, Type: knox.Machine}

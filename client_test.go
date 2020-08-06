@@ -14,7 +14,7 @@ func TestMockClient(t *testing.T) {
 	a := []string{"active1", "active2"}
 	k0 := Key{
 		VersionList: []KeyVersion{
-			KeyVersion{Data: []byte(p), Status: Primary}, KeyVersion{Data: []byte(a[0]), Status: Active}, KeyVersion{Data: []byte(a[1]), Status: Active}}}
+			{Data: []byte(p), Status: Primary}, {Data: []byte(a[0]), Status: Active}, {Data: []byte(a[1]), Status: Active}}}
 
 	m := NewMock(p, a)
 	p1 := m.GetPrimary()
@@ -194,7 +194,7 @@ func TestCreateKey(t *testing.T) {
 	cli := MockClient(srv.Listener.Addr().String())
 
 	acl := ACL([]Access{
-		Access{
+		{
 			Type:       User,
 			AccessType: Read,
 			ID:         "test",
@@ -202,7 +202,7 @@ func TestCreateKey(t *testing.T) {
 	})
 
 	badACL := ACL([]Access{
-		Access{
+		{
 			Type:       233,
 			AccessType: 80927,
 			ID:         "test",

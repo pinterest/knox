@@ -253,10 +253,10 @@ func TestConcurrentAddKeys(t *testing.T) {
 		getKeys(t)
 		key := getKey(t, "testkey")
 		if key.VersionList[0].ID != keyID {
-			t.Fatal("Key ID's do not match")
+			t.Error("Key ID's do not match")
 		}
 		if !bytes.Equal(key.VersionList[0].Data, data) {
-			t.Fatal("Data is not consistant")
+			t.Error("Data is not consistant")
 		}
 	}()
 	wg.Add(1)

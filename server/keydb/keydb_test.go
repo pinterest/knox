@@ -140,31 +140,31 @@ func TesterErrs(t *testing.T, db DB, expErr error) {
 	go func() {
 		_, err := db.GetAll()
 		if err != expErr {
-			t.Fatalf("%s does not equal %s", err, expErr)
+			t.Errorf("%s does not equal %s", err, expErr)
 		}
 	}()
 	go func() {
 		err := db.Add(&k)
 		if err != expErr {
-			t.Fatalf("%s does not equal %s", err, expErr)
+			t.Errorf("%s does not equal %s", err, expErr)
 		}
 	}()
 	go func() {
 		err := db.Remove(k.ID)
 		if err != expErr {
-			t.Fatalf("%s does not equal %s", err, expErr)
+			t.Errorf("%s does not equal %s", err, expErr)
 		}
 	}()
 	go func() {
 		err := db.Update(&k)
 		if err != expErr {
-			t.Fatalf("%s does not equal %s", err, expErr)
+			t.Errorf("%s does not equal %s", err, expErr)
 		}
 	}()
 	go func() {
 		_, err := db.Get(k.ID)
 		if err != expErr {
-			t.Fatalf("%s does not equal %s", err, expErr)
+			t.Errorf("%s does not equal %s", err, expErr)
 		}
 	}()
 }

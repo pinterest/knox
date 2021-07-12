@@ -28,13 +28,13 @@ Usage:
 
 The commands are:
 {{range .}}{{if .Runnable}}
-    {{.Name | printf "%-11s"}} {{.Short}}{{end}}{{end}}
+    {{.Name | printf "%-14s"}} {{.Short}}{{end}}{{end}}
 
 Use "knox help [command]" for more information about a command.
 
 Additional help topics:
 {{range .}}{{if not .Runnable}}
-    {{.Name | printf "%-11s"}} {{.Short}}{{end}}{{end}}
+    {{.Name | printf "%-14s"}} {{.Short}}{{end}}{{end}}
 
 Use "knox help [topic]" for more information about that topic.
 

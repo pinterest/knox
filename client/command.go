@@ -141,6 +141,7 @@ var commands = []*Command{
 	cmdLogin,
 
 	// These are additional help topics
+	cmdListKeyTemplates,
 	cmdVersion,
 	helpAuth,
 }

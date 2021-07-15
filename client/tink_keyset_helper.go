@@ -54,30 +54,29 @@ func checkTemplateNameAndKnoxIDForTinkKeyset(templateName string, knoxIentifier 
 	if !ok {
 		return errors.New("not supported Tink key template. See 'knox key-templates'")
 	} else if !strings.HasPrefix(knoxIentifier, templateInfo.knoxIDPrefix) {
-		errInfo := fmt.Sprintf("<key_identifier> must have prefix '%s'", templateInfo.knoxIDPrefix)
-		return errors.New(errInfo)
+		return fmt.Errorf("<key_identifier> must have prefix '%s'", templateInfo.knoxIDPrefix)
 	}
 	return nil
 }
 
 // createNewTinkKeyset creates a new tink keyset contains a single fresh key from the given tink key templateFunc.
-func createNewTinkKeyset(templateFunc func() *tinkpb.KeyTemplate) []byte {
+func createNewTinkKeyset(templateFunc func() *tinkpb.KeyTemplate) ([]byte, error) {
 	// Creates a keyset handle that contains a single fresh key
 	keysetHandle, err := keyset.NewHandle(templateFunc())
 	if keysetHandle == nil || err != nil {
-		fatalf("cannot get tink keyset handle: %v", err)
+		return nil, fmt.Errorf("cannot get tink keyset handle: %v", err)
 	}
 	return convertTinkKeysetHandleToBytes(keysetHandle)
 }
 
 // convertTinkKeysetHandleToBytes extracts keyset from tink keyset handle and converts it to bytes
-func convertTinkKeysetHandleToBytes(keysetHandle *keyset.Handle) []byte {
+func convertTinkKeysetHandleToBytes(keysetHandle *keyset.Handle) ([]byte, error) {
 	bytesBuffer := new(bytes.Buffer)
 	writer := keyset.NewBinaryWriter(bytesBuffer)
 	// To write cleartext keyset handle, must use package "insecurecleartextkeyset"
 	err := insecurecleartextkeyset.Write(keysetHandle, writer)
 	if err != nil {
-		fatalf("cannot write tink keyset: %v", err)
+		return nil, fmt.Errorf("cannot write tink keyset: %v", err)
 	}
-	return bytesBuffer.Bytes()
+	return bytesBuffer.Bytes(), nil
 }

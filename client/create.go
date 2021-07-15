@@ -16,14 +16,13 @@ var cmdCreate = &Command{
 	UsageLine: "create [--key-template template_name] <key_identifier>",
 	Short:     "creates a new key",
 	Long: `
-Create will create a new key in knox with original data set as the primary data. There are two ways to provide data in order to create a new key.
+Create will create a new key in knox with input as the primary key version. Key data should be sent to stdin unless a key-template is specified.
 
 First way: key data is sent to stdin.
-Please use command "create <key_identifier>". 
+Please run "knox create <key_identifier>". 
 
-Second way: using supported tink key template to create a new tink keyset containing a single key, which will be used as the data directly.
-Please use command "create --key-template template_name <key_identifier>".
-To check supported tink key templates, please use command "key-templates".
+Second way: the key-template option can be used to specify a template to generate the initial primary key version, instead of stdin. For available key templates, run "knox key-templates".
+Please run "knox create --key-template template_name <key_identifier>".
 
 The original key version id will be print to stdout.
 
@@ -49,12 +48,12 @@ func runCreate(cmd *Command, args []string) {
 		if err != nil {
 			fatalf(err.Error())
 		}
-		data = createNewTinkKeyset(tinkKeyTemplates[templateName].templateFunc)
+		data, err = createNewTinkKeyset(tinkKeyTemplates[templateName].templateFunc)
 	} else {
 		data, err = readDataFromStdin()
-		if err != nil {
-			fatalf("Problem reading key data: %s", err.Error())
-		}
+	}
+	if err != nil {
+		fatalf(err.Error())
 	}
 	// TODO(devinlundberg): allow ACL to be entered as input
 	acl := knox.ACL{}
@@ -68,5 +67,8 @@ func runCreate(cmd *Command, args []string) {
 func readDataFromStdin() ([]byte, error) {
 	fmt.Println("Reading from stdin...")
 	data, err := ioutil.ReadAll(os.Stdin)
-	return data, err
+	if err != nil {
+		return data, fmt.Errorf("problem reading key data: %s", err.Error())
+	}
+	return data, nil
 }

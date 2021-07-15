@@ -30,22 +30,30 @@ func TestNameOfSupportedTinkKeyTemplates(t *testing.T) {
 
 func TestCheckTemplateNameAndKnoxIDForTinkKeyset(t *testing.T) {
 	if err := checkTemplateNameAndKnoxIDForTinkKeyset("invalid", "invalid"); err == nil {
-		t.Fatalf("cannot check whether knox identifier for tink keyset obey the naming rule")
+		t.Fatalf("cannot identify invalid tink key template")
 	}
-	if err := checkTemplateNameAndKnoxIDForTinkKeyset("TINK_AEAD_AES256_GCM", "invalid"); err == nil {
-		t.Fatalf("cannot check whether knox identifier for tink keyset obey the naming rule")
+	for k := range tinkKeyTemplates {
+		illegalKnoxIdentifier := "wrongKnoxIdentifier"
+		err := checkTemplateNameAndKnoxIDForTinkKeyset(k, illegalKnoxIdentifier)
+		if err == nil {
+			t.Fatalf("cannot identify illegal knox identifer for template '%s'", k)
+		}
 	}
-	if err := checkTemplateNameAndKnoxIDForTinkKeyset("TINK_AEAD_AES256_GCM", "tink:dsig:"); err == nil {
-		t.Fatalf("cannot check whether knox identifier for tink keyset obey the naming rule")
-	}
-	if err := checkTemplateNameAndKnoxIDForTinkKeyset("TINK_AEAD_AES256_GCM", "tink:aead:"); err != nil {
-		t.Fatalf("cannot check whether knox identifier for tink keyset obey the naming rule")
+	for k, v := range tinkKeyTemplates {
+		legalKnoxIdentifier := v.knoxIDPrefix + "test"
+		err := checkTemplateNameAndKnoxIDForTinkKeyset(k, legalKnoxIdentifier)
+		if err != nil {
+			t.Fatalf("cannot accept legal knox identifer for template '%s'", k)
+		}
 	}
 }
 
 func TestCreateNewTinkKeyset(t *testing.T) {
 	keyTemplate := mac.HMACSHA512Tag256KeyTemplate
-	keysetInBytes := createNewTinkKeyset(keyTemplate)
+	keysetInBytes, err := createNewTinkKeyset(keyTemplate)
+	if err != nil {
+		t.Fatalf("cannot create a new tink keyset: %v", err)
+	}
 	bytesBuffer := new(bytes.Buffer)
 	bytesBuffer.Write(keysetInBytes)
 	tinkKeyset, err := keyset.NewBinaryReader(bytesBuffer).Read()
@@ -77,7 +85,10 @@ func TestConvertTinkKeysetHandleToBytes(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %s", err)
 	}
-	keysetInBytes := convertTinkKeysetHandleToBytes(keysetHandle)
+	keysetInBytes, err := convertTinkKeysetHandleToBytes(keysetHandle)
+	if err != nil {
+		t.Fatalf("cannot create convert tink keyset handle to bytes: %v", err)
+	}
 	bytesBuffer := new(bytes.Buffer)
 	bytesBuffer.Write(keysetInBytes)
 	tinkKeyset, err := keyset.NewBinaryReader(bytesBuffer).Read()
@@ -85,6 +96,6 @@ func TestConvertTinkKeysetHandleToBytes(t *testing.T) {
 		t.Fatalf("unexpected error reading tink keyset data: %v", err)
 	}
 	if err := keyset.Validate(tinkKeyset); err != nil {
-		t.Fatalf("cannot extract keyset from keyset handle and convert it to bytes")
+		t.Fatalf("when convert tink keyset handle to bytes, the keyset becomes invalid")
 	}
 }

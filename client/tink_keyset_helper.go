@@ -1,12 +1,17 @@
 package client
 
 import (
+	"bytes"
+	"errors"
+	"fmt"
 	"sort"
 	"strings"
 
 	"github.com/google/tink/go/aead"
 	"github.com/google/tink/go/daead"
 	"github.com/google/tink/go/hybrid"
+	"github.com/google/tink/go/insecurecleartextkeyset"
+	"github.com/google/tink/go/keyset"
 	"github.com/google/tink/go/mac"
 	"github.com/google/tink/go/signature"
 	"github.com/google/tink/go/streamingaead"
@@ -41,4 +46,37 @@ func nameOfSupportedTinkKeyTemplates() string {
 	}
 	sort.Strings(supportedTemplates)
 	return strings.Join(supportedTemplates, "\n")
+}
+
+// checkTemplateNameAndKnoxIDForTinkKeyset checks whether knox identifier start with "tink:<tink_primitive_short_name>:".
+func checkTemplateNameAndKnoxIDForTinkKeyset(templateName string, knoxIentifier string) error {
+	templateInfo, ok := tinkKeyTemplates[templateName]
+	if !ok {
+		return errors.New("not supported Tink key template. See 'knox key-templates'")
+	} else if !strings.HasPrefix(knoxIentifier, templateInfo.knoxIDPrefix) {
+		return fmt.Errorf("<key_identifier> must have prefix '%s'", templateInfo.knoxIDPrefix)
+	}
+	return nil
+}
+
+// createNewTinkKeyset creates a new tink keyset contains a single fresh key from the given tink key templateFunc.
+func createNewTinkKeyset(templateFunc func() *tinkpb.KeyTemplate) ([]byte, error) {
+	// Creates a keyset handle that contains a single fresh key
+	keysetHandle, err := keyset.NewHandle(templateFunc())
+	if keysetHandle == nil || err != nil {
+		return nil, fmt.Errorf("cannot get tink keyset handle: %v", err)
+	}
+	return convertTinkKeysetHandleToBytes(keysetHandle)
+}
+
+// convertTinkKeysetHandleToBytes extracts keyset from tink keyset handle and converts it to bytes
+func convertTinkKeysetHandleToBytes(keysetHandle *keyset.Handle) ([]byte, error) {
+	bytesBuffer := new(bytes.Buffer)
+	writer := keyset.NewBinaryWriter(bytesBuffer)
+	// To write cleartext keyset handle, must use package "insecurecleartextkeyset"
+	err := insecurecleartextkeyset.Write(keysetHandle, writer)
+	if err != nil {
+		return nil, fmt.Errorf("cannot write tink keyset: %v", err)
+	}
+	return bytesBuffer.Bytes(), nil
 }

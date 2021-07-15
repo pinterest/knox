@@ -3,6 +3,7 @@ package client
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"sort"
 	"strings"
 
@@ -49,11 +50,12 @@ func nameOfSupportedTinkKeyTemplates() string {
 
 // checkTemplateNameAndKnoxIDForTinkKeyset checks whether knox identifier start with "tink:<tink_primitive_short_name>:".
 func checkTemplateNameAndKnoxIDForTinkKeyset(templateName string, knoxIentifier string) error {
-	templateInfo, existed := tinkKeyTemplates[templateName]
-	if !existed {
-		return errors.New("not supported keyset template. See 'knox key-templates'")
+	templateInfo, ok := tinkKeyTemplates[templateName]
+	if !ok {
+		return errors.New("not supported Tink key template. See 'knox key-templates'")
 	} else if !strings.HasPrefix(knoxIentifier, templateInfo.knoxIDPrefix) {
-		return errors.New("<key_identifier> must have prefix '" + templateInfo.knoxIDPrefix + "'")
+		errInfo := fmt.Sprintf("<key_identifier> must have prefix '%s'", templateInfo.knoxIDPrefix)
+		return errors.New(errInfo)
 	}
 	return nil
 }
@@ -73,7 +75,8 @@ func convertTinkKeysetHandleToBytes(keysetHandle *keyset.Handle) []byte {
 	bytesBuffer := new(bytes.Buffer)
 	writer := keyset.NewBinaryWriter(bytesBuffer)
 	// To write cleartext keyset handle, must use package "insecurecleartextkeyset"
-	if err := insecurecleartextkeyset.Write(keysetHandle, writer); err != nil {
+	err := insecurecleartextkeyset.Write(keysetHandle, writer)
+	if err != nil {
 		fatalf("cannot write tink keyset: %v", err)
 	}
 	return bytesBuffer.Bytes()

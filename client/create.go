@@ -34,25 +34,27 @@ For more about knox, see https://github.com/pinterest/knox.
 See also: knox add, knox get
 	`,
 }
-var createTinkKeyset = cmdCreate.Flag.Bool("key-template", false, "")
+var createTinkKeyset = cmdCreate.Flag.String("key-template", "", "")
 
 func runCreate(cmd *Command, args []string) {
-	if len(args) != 1 && len(args) != 2 || len(args) == 2 && !*createTinkKeyset ||
-		len(args) != 2 && *createTinkKeyset {
-		fatalf("unsupported command. See 'knox help create'")
+	if len(args) != 1 {
+		fatalf("create takes exactly one argument. See 'knox help create'")
 	}
-	var keyID string
+	keyID := args[0]
 	var data []byte
-	if *createTinkKeyset {
-		templateName := args[0]
-		keyID = args[1]
-		if err := checkTemplateNameAndKnoxIDForTinkKeyset(templateName, keyID); err != nil {
+	var err error
+	if *createTinkKeyset != "" {
+		templateName := *createTinkKeyset
+		err = checkTemplateNameAndKnoxIDForTinkKeyset(templateName, keyID)
+		if err != nil {
 			fatalf(err.Error())
 		}
 		data = createNewTinkKeyset(tinkKeyTemplates[templateName].templateFunc)
 	} else {
-		keyID = args[0]
-		data = readDataFromStdin()
+		data, err = readDataFromStdin()
+		if err != nil {
+			fatalf("Problem reading key data: %s", err.Error())
+		}
 	}
 	// TODO(devinlundberg): allow ACL to be entered as input
 	acl := knox.ACL{}
@@ -63,11 +65,8 @@ func runCreate(cmd *Command, args []string) {
 	fmt.Printf("Created key with initial version %d\n", versionID)
 }
 
-func readDataFromStdin() []byte {
+func readDataFromStdin() ([]byte, error) {
 	fmt.Println("Reading from stdin...")
 	data, err := ioutil.ReadAll(os.Stdin)
-	if err != nil {
-		fatalf("Problem reading key data: %s", err.Error())
-	}
-	return data
+	return data, err
 }

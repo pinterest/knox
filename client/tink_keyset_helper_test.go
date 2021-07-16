@@ -33,20 +33,20 @@ func TestNameOfSupportedTinkKeyTemplates(t *testing.T) {
 	}
 }
 
-func TestCheckTemplateNameAndKnoxIDForTinkKeyset(t *testing.T) {
-	if err := checkTemplateNameAndKnoxIDForTinkKeyset("invalid", "invalid"); err == nil {
+func TestObeyNamingRule(t *testing.T) {
+	if err := obeyNamingRule("invalid", "invalid"); err == nil {
 		t.Fatalf("cannot identify invalid tink key template")
 	}
 	for k := range tinkKeyTemplates {
 		illegalKnoxIdentifier := "wrongKnoxIdentifier"
-		err := checkTemplateNameAndKnoxIDForTinkKeyset(k, illegalKnoxIdentifier)
+		err := obeyNamingRule(k, illegalKnoxIdentifier)
 		if err == nil {
 			t.Fatalf("cannot identify illegal knox identifer for template '%s'", k)
 		}
 	}
 	for k, v := range tinkKeyTemplates {
 		legalKnoxIdentifier := v.knoxIDPrefix + "test"
-		err := checkTemplateNameAndKnoxIDForTinkKeyset(k, legalKnoxIdentifier)
+		err := obeyNamingRule(k, legalKnoxIdentifier)
 		if err != nil {
 			t.Fatalf("cannot accept legal knox identifer for template '%s'", k)
 		}

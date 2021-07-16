@@ -42,17 +42,17 @@ func runAdd(cmd *Command, args []string) {
 	var err error
 	if *addTinkKeyset != "" {
 		templateName := *addTinkKeyset
-		err = checkTemplateNameAndKnoxIDForTinkKeyset(templateName, keyID)
+		err = obeyNamingRule(templateName, keyID)
 		if err != nil {
 			fatalf(err.Error())
 		}
 		// get all versions (primary, active, inactive) of this knox identifier
-		var allExistedVersions *knox.Key
-		allExistedVersions, err = cli.NetworkGetKeyWithStatus(keyID, knox.Inactive)
+		var allVersions *knox.Key
+		allVersions, err = cli.NetworkGetKeyWithStatus(keyID, knox.Inactive)
 		if err != nil {
 			fatalf("Error getting key: %s", err.Error())
 		}
-		data, err = addNewTinkKeyset(tinkKeyTemplates[templateName].templateFunc, allExistedVersions.VersionList)
+		data, err = addNewTinkKeyset(tinkKeyTemplates[templateName].templateFunc, allVersions.VersionList)
 	} else {
 		data, err = readDataFromStdin()
 	}

@@ -49,8 +49,8 @@ func nameOfSupportedTinkKeyTemplates() string {
 	return strings.Join(supportedTemplates, "\n")
 }
 
-// checkTemplateNameAndKnoxIDForTinkKeyset checks whether knox identifier start with "tink:<tink_primitive_short_name>:".
-func checkTemplateNameAndKnoxIDForTinkKeyset(templateName string, knoxIentifier string) error {
+// obeyNamingRule checks whether knox identifier start with "tink:<tink_primitive_short_name>:".
+func obeyNamingRule(templateName string, knoxIentifier string) error {
 	templateInfo, ok := tinkKeyTemplates[templateName]
 	if !ok {
 		return errors.New("not supported Tink key template. See 'knox key-templates'")
@@ -96,15 +96,15 @@ func addNewTinkKeyset(templateFunc func() *tinkpb.KeyTemplate, knoxVersionList k
 	}
 	var keysetHandle *keyset.Handle
 	var err error
+	// This loop is for retrying until a non-duplicate key id is generated.
 	for {
 		keysetHandle, err = keyset.NewHandle(templateFunc())
 		if keysetHandle == nil || err != nil {
 			return nil, fmt.Errorf("cannot get tink keyset handle: %v", err)
 		}
 		newTinkKeyID := keysetHandle.KeysetInfo().PrimaryKeyId
-		// Check whether the ID of created tink key to avoid key ID duplication
-		_, ok := existedTinkKeysID[newTinkKeyID]
-		if !ok {
+		_, duplicate := existedTinkKeysID[newTinkKeyID]
+		if !duplicate {
 			break
 		}
 	}

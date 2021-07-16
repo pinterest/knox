@@ -44,7 +44,7 @@ func runCreate(cmd *Command, args []string) {
 	var err error
 	if *createTinkKeyset != "" {
 		templateName := *createTinkKeyset
-		err = checkTemplateNameAndKnoxIDForTinkKeyset(templateName, keyID)
+		err = obeyNamingRule(templateName, keyID)
 		if err != nil {
 			fatalf(err.Error())
 		}

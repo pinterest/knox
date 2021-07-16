@@ -15,6 +15,7 @@ import (
 	"github.com/google/tink/go/mac"
 	"github.com/google/tink/go/signature"
 	"github.com/google/tink/go/streamingaead"
+	"github.com/pinterest/knox"
 
 	tinkpb "github.com/google/tink/go/proto/tink_go_proto"
 )
@@ -79,4 +80,44 @@ func convertTinkKeysetHandleToBytes(keysetHandle *keyset.Handle) ([]byte, error)
 		return nil, fmt.Errorf("cannot write tink keyset: %v", err)
 	}
 	return bytesBuffer.Bytes(), nil
+}
+
+// addNewTinkKeyset receives a knox version list and a tink key templateFunc, create a new tink keyset contains
+// a single fresh key from the given tink key templateFunc. Most importantly, the ID of this signle fresh key is
+// different from the ID of all existed tink keys in the given knox version list (avoid Tink key ID duplications).
+func addNewTinkKeyset(templateFunc func() *tinkpb.KeyTemplate, knoxVersionList knox.KeyVersionList) ([]byte, error) {
+	existedTinkKeysID := make(map[uint32]struct{})
+	for _, v := range knoxVersionList {
+		tinkKeysetForAVersion, err := readTinkKeysetFromBytes(v.Data)
+		if err != nil {
+			return nil, err
+		}
+		existedTinkKeysID[tinkKeysetForAVersion.PrimaryKeyId] = struct{}{}
+	}
+	var keysetHandle *keyset.Handle
+	var err error
+	for {
+		keysetHandle, err = keyset.NewHandle(templateFunc())
+		if keysetHandle == nil || err != nil {
+			return nil, fmt.Errorf("cannot get tink keyset handle: %v", err)
+		}
+		newTinkKeyID := keysetHandle.KeysetInfo().PrimaryKeyId
+		// Check whether the ID of created tink key to avoid key ID duplication
+		_, ok := existedTinkKeysID[newTinkKeyID]
+		if !ok {
+			break
+		}
+	}
+	return convertTinkKeysetHandleToBytes(keysetHandle)
+}
+
+// readTinkKeysetFromBytes extracts tink keyset from bytes.
+func readTinkKeysetFromBytes(data []byte) (*tinkpb.Keyset, error) {
+	bytesBuffer := new(bytes.Buffer)
+	bytesBuffer.Write(data)
+	tinkKeyset, err := keyset.NewBinaryReader(bytesBuffer).Read()
+	if err != nil {
+		return nil, fmt.Errorf("unexpected error reading tink keyset: %v", err)
+	}
+	return tinkKeyset, nil
 }

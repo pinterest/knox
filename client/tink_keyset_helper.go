@@ -15,6 +15,7 @@ import (
 	"github.com/google/tink/go/mac"
 	"github.com/google/tink/go/signature"
 	"github.com/google/tink/go/streamingaead"
+	"github.com/pinterest/knox"
 
 	tinkpb "github.com/google/tink/go/proto/tink_go_proto"
 )
@@ -48,8 +49,8 @@ func nameOfSupportedTinkKeyTemplates() string {
 	return strings.Join(supportedTemplates, "\n")
 }
 
-// checkTemplateNameAndKnoxIDForTinkKeyset checks whether knox identifier start with "tink:<tink_primitive_short_name>:".
-func checkTemplateNameAndKnoxIDForTinkKeyset(templateName string, knoxIentifier string) error {
+// obeyNamingRule checks whether knox identifier start with "tink:<tink_primitive_short_name>:".
+func obeyNamingRule(templateName string, knoxIentifier string) error {
 	templateInfo, ok := tinkKeyTemplates[templateName]
 	if !ok {
 		return errors.New("not supported Tink key template. See 'knox key-templates'")
@@ -79,4 +80,42 @@ func convertTinkKeysetHandleToBytes(keysetHandle *keyset.Handle) ([]byte, error)
 		return nil, fmt.Errorf("cannot write tink keyset: %v", err)
 	}
 	return bytesBuffer.Bytes(), nil
+}
+
+// addNewTinkKeyset receives a knox version list and a tink key templateFunc, create a new tink keyset contains
+// a single fresh key from the given tink key templateFunc. Most importantly, the ID of this single fresh key is
+// different from the ID of all existing tink keys in the given knox version list (avoid Tink key ID duplications).
+func addNewTinkKeyset(templateFunc func() *tinkpb.KeyTemplate, knoxVersionList knox.KeyVersionList) ([]byte, error) {
+	existingTinkKeysID := make(map[uint32]struct{})
+	for _, v := range knoxVersionList {
+		tinkKeysetForAVersion, err := readTinkKeysetFromBytes(v.Data)
+		if err != nil {
+			return nil, err
+		}
+		existingTinkKeysID[tinkKeysetForAVersion.PrimaryKeyId] = struct{}{}
+	}
+	var keysetHandle *keyset.Handle
+	var err error
+	// This loop is for retrying until a non-duplicate key id is generated.
+	isDuplicated := true
+	for isDuplicated {
+		keysetHandle, err = keyset.NewHandle(templateFunc())
+		if keysetHandle == nil || err != nil {
+			return nil, fmt.Errorf("cannot get tink keyset handle: %v", err)
+		}
+		newTinkKeyID := keysetHandle.KeysetInfo().PrimaryKeyId
+		_, isDuplicated = existingTinkKeysID[newTinkKeyID]
+	}
+	return convertTinkKeysetHandleToBytes(keysetHandle)
+}
+
+// readTinkKeysetFromBytes extracts tink keyset from bytes.
+func readTinkKeysetFromBytes(data []byte) (*tinkpb.Keyset, error) {
+	bytesBuffer := new(bytes.Buffer)
+	bytesBuffer.Write(data)
+	tinkKeyset, err := keyset.NewBinaryReader(bytesBuffer).Read()
+	if err != nil {
+		return nil, fmt.Errorf("unexpected error reading tink keyset: %v", err)
+	}
+	return tinkKeyset, nil
 }

@@ -20,7 +20,7 @@ First way: key data of new version is sent to stdin.
 Please run "knox add <key_identifier>". 
 
 Second way: the key-template option can be used to specify a template to generate the new key version, instead of stdin. For available key templates, run "knox key-templates".
-Please run "knox add --key-template template_name <key_identifier>".
+Please run "knox add --key-template <template_name> <key_identifier>".
 
 This key version will be set to active upon creation. The version id will be sent to stdout on creation.
 
@@ -31,7 +31,7 @@ For more about knox, see https://github.com/pinterest/knox.
 See also: knox create, knox promote
 	`,
 }
-var addTinkKeyset = cmdAdd.Flag.String("key-template", "", "")
+var addTinkKeyset = cmdAdd.Flag.String("key-template", "", "name of a knox-supported Tink key template")
 
 func runAdd(cmd *Command, args []string) {
 	if len(args) != 1 {
@@ -41,18 +41,7 @@ func runAdd(cmd *Command, args []string) {
 	var data []byte
 	var err error
 	if *addTinkKeyset != "" {
-		templateName := *addTinkKeyset
-		err = obeyNamingRule(templateName, keyID)
-		if err != nil {
-			fatalf(err.Error())
-		}
-		// get all versions (primary, active, inactive) of this knox identifier
-		var allVersions *knox.Key
-		allVersions, err = cli.NetworkGetKeyWithStatus(keyID, knox.Inactive)
-		if err != nil {
-			fatalf("Error getting key: %s", err.Error())
-		}
-		data, err = addNewTinkKeyset(tinkKeyTemplates[templateName].templateFunc, allVersions.VersionList)
+		data, err = getDataWithTemplate(*addTinkKeyset, keyID)
 	} else {
 		data, err = readDataFromStdin()
 	}
@@ -64,4 +53,18 @@ func runAdd(cmd *Command, args []string) {
 		fatalf("Error adding version: %s", err.Error())
 	}
 	fmt.Printf("Added key version %d\n", versionID)
+}
+
+// getDataWithTemplate returns the data for a new version of a knox identifier that stores Tink keyset.
+func getDataWithTemplate(templateName string, keyID string) ([]byte, error) {
+	err := obeyNamingRule(templateName, keyID)
+	if err != nil {
+		return nil, err
+	}
+	// get all versions (primary, active, inactive) of this knox identifier
+	allVersions, err := cli.NetworkGetKeyWithStatus(keyID, knox.Inactive)
+	if err != nil {
+		return nil, fmt.Errorf("error getting key: %s", err.Error())
+	}
+	return addNewTinkKeyset(tinkKeyTemplates[templateName].templateFunc, allVersions.VersionList)
 }

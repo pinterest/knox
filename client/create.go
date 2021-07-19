@@ -22,7 +22,7 @@ First way: key data is sent to stdin.
 Please run "knox create <key_identifier>". 
 
 Second way: the key-template option can be used to specify a template to generate the initial primary key version, instead of stdin. For available key templates, run "knox key-templates".
-Please run "knox create --key-template template_name <key_identifier>".
+Please run "knox create --key-template <template_name> <key_identifier>".
 
 The original key version id will be print to stdout.
 
@@ -33,7 +33,7 @@ For more about knox, see https://github.com/pinterest/knox.
 See also: knox add, knox get
 	`,
 }
-var createTinkKeyset = cmdCreate.Flag.String("key-template", "", "")
+var createTinkKeyset = cmdCreate.Flag.String("key-template", "", "name of a knox-supported Tink key template")
 
 func runCreate(cmd *Command, args []string) {
 	if len(args) != 1 {

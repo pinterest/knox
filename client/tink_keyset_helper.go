@@ -83,30 +83,28 @@ func convertTinkKeysetHandleToBytes(keysetHandle *keyset.Handle) ([]byte, error)
 }
 
 // addNewTinkKeyset receives a knox version list and a tink key templateFunc, create a new tink keyset contains
-// a single fresh key from the given tink key templateFunc. Most importantly, the ID of this signle fresh key is
-// different from the ID of all existed tink keys in the given knox version list (avoid Tink key ID duplications).
+// a single fresh key from the given tink key templateFunc. Most importantly, the ID of this single fresh key is
+// different from the ID of all existing tink keys in the given knox version list (avoid Tink key ID duplications).
 func addNewTinkKeyset(templateFunc func() *tinkpb.KeyTemplate, knoxVersionList knox.KeyVersionList) ([]byte, error) {
-	existedTinkKeysID := make(map[uint32]struct{})
+	existingTinkKeysID := make(map[uint32]struct{})
 	for _, v := range knoxVersionList {
 		tinkKeysetForAVersion, err := readTinkKeysetFromBytes(v.Data)
 		if err != nil {
 			return nil, err
 		}
-		existedTinkKeysID[tinkKeysetForAVersion.PrimaryKeyId] = struct{}{}
+		existingTinkKeysID[tinkKeysetForAVersion.PrimaryKeyId] = struct{}{}
 	}
 	var keysetHandle *keyset.Handle
 	var err error
 	// This loop is for retrying until a non-duplicate key id is generated.
-	for {
+	isDuplicated := true
+	for isDuplicated {
 		keysetHandle, err = keyset.NewHandle(templateFunc())
 		if keysetHandle == nil || err != nil {
 			return nil, fmt.Errorf("cannot get tink keyset handle: %v", err)
 		}
 		newTinkKeyID := keysetHandle.KeysetInfo().PrimaryKeyId
-		_, duplicate := existedTinkKeysID[newTinkKeyID]
-		if !duplicate {
-			break
-		}
+		_, isDuplicated = existingTinkKeysID[newTinkKeyID]
 	}
 	return convertTinkKeysetHandleToBytes(keysetHandle)
 }

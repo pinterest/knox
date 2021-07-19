@@ -117,27 +117,22 @@ func getDummyKnoxVersionList(
 	tinkKeyIDToKnoxVersionID := make(map[uint32]uint64)
 	// counts decide how many versions this dummy version list will have
 	for i := 0; i < counts; i++ {
-		// get a tink keyset in bytes that contains a fresh single key and the keyID is not duplicated
-		var keysetInbytes []byte
-		for {
-			keysetHandle, err := keyset.NewHandle(templateFunc())
+		// get a tink keyset handle that contains a fresh single key and the keyID is not duplicated
+		var keysetHandle *keyset.Handle
+		var err error
+		isDuplicated := true
+		for isDuplicated {
+			keysetHandle, err = keyset.NewHandle(templateFunc())
 			if keysetHandle == nil || err != nil {
 				fatalf("cannot get tink keyset handle: %v", err)
 			}
-			_, ok := tinkKeyIDToKnoxVersionID[keysetHandle.KeysetInfo().PrimaryKeyId]
-			if !ok {
-				// This is a not duplicated Tink Key ID, use it to add a new Knox version
-				// To be noticed, index i is used as the dummy knox version ID
-				tinkKeyIDToKnoxVersionID[keysetHandle.KeysetInfo().PrimaryKeyId] = uint64(i)
-				bytesBuffer := new(bytes.Buffer)
-				writer := keyset.NewBinaryWriter(bytesBuffer)
-				err := insecurecleartextkeyset.Write(keysetHandle, writer)
-				if err != nil {
-					fatalf("cannot write tink keyset: %v", err)
-				}
-				keysetInbytes = bytesBuffer.Bytes()
-				break
-			}
+			_, isDuplicated = tinkKeyIDToKnoxVersionID[keysetHandle.KeysetInfo().PrimaryKeyId]
+		}
+		// Convert keyset handle to bytes, since the data in each version is bytes
+		var keysetInBytes []byte
+		keysetInBytes, err = convertTinkKeysetHandleToBytes(keysetHandle)
+		if err != nil {
+			fatalf(err.Error())
 		}
 		// Add a new version to the dummy version list. Only one Primary version, all others are Active version.
 		var status knox.VersionStatus
@@ -149,27 +144,26 @@ func getDummyKnoxVersionList(
 		// To be noticed, index i is used as dummy knox version ID and dummy creation time.
 		dummyVersionList = append(dummyVersionList, knox.KeyVersion{
 			ID:           uint64(i),
-			Data:         keysetInbytes,
+			Data:         keysetInBytes,
 			Status:       status,
 			CreationTime: int64(i),
 		})
+		tinkKeyIDToKnoxVersionID[keysetHandle.KeysetInfo().PrimaryKeyId] = uint64(i)
 	}
 	return dummyVersionList, tinkKeyIDToKnoxVersionID
 }
 
 func TestAddNewTinkKeyset(t *testing.T) {
 	keyTemplate := aead.AES256GCMKeyTemplate
-	// create a dummy version list has one hunderd thousand Tink keys, this large number of Tink keys
-	// is used to check whether func addNewTinkKeyset will add duplicated Key
-	dummyVersionList, tinkKeyIDToKnoxVersionID := getDummyKnoxVersionList(100000, keyTemplate)
+	// create a dummy version list has one million Tink keys, this large number of Tink keys is used to
+	// check whether func addNewTinkKeyset will add duplicated Key
+	dummyVersionList, tinkKeyIDToKnoxVersionID := getDummyKnoxVersionList(1000000, keyTemplate)
 	newKeysetInBytes, err := addNewTinkKeyset(keyTemplate, dummyVersionList)
 	if err != nil {
 		t.Fatalf("cannot add new Tink keyset: %v", err)
 	}
 	// convert bytes to a Tink keyset, and check whether it is a valid keyset
-	bytesBuffer := new(bytes.Buffer)
-	bytesBuffer.Write(newKeysetInBytes)
-	tinkKeyset, err := keyset.NewBinaryReader(bytesBuffer).Read()
+	tinkKeyset, err := readTinkKeysetFromBytes(newKeysetInBytes)
 	if err != nil {
 		t.Fatalf("unexpected error reading tink keyset data: %v", err)
 	}

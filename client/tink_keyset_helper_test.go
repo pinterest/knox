@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/golang/protobuf/proto"
 	"github.com/google/tink/go/aead"
 	"github.com/google/tink/go/insecurecleartextkeyset"
 	"github.com/google/tink/go/keyset"
@@ -55,13 +56,12 @@ func TestObeyNamingRule(t *testing.T) {
 }
 
 func TestIsIDforTinkKeyset(t *testing.T) {
-	if err := isIDforTinkKeyset("invalid"); err == nil {
+	if isIDforTinkKeyset("invalid") {
 		t.Fatalf("cannot identify knox identifier that is not for tink keyset")
 	}
 	for _, templateInfo := range tinkKeyTemplates {
 		knoxIdentifierForTinkKeyset := templateInfo.knoxIDPrefix + "test"
-		err := isIDforTinkKeyset(knoxIdentifierForTinkKeyset)
-		if err != nil {
+		if !isIDforTinkKeyset(knoxIdentifierForTinkKeyset) {
 			t.Fatalf("cannot identify knox identifier that is for tink keyset")
 		}
 	}
@@ -243,6 +243,24 @@ func TestGetTinkKeysetHandleFromKnoxVersionList(t *testing.T) {
 	}
 }
 
+func TestConvertCleartextTinkKeysetToHandle(t *testing.T) {
+	// Create a keyset that contains a single HmacKey.
+	keyTemplate := mac.HMACSHA256Tag128KeyTemplate()
+	keysetHandle, err := keyset.NewHandle(keyTemplate)
+	if keysetHandle == nil || err != nil {
+		t.Fatalf("cannot get keyset handle: %v", err)
+	}
+	tinkKeyset := insecurecleartextkeyset.KeysetMaterial(keysetHandle)
+	parsedHandle, err := convertCleartextTinkKeysetToHandle(tinkKeyset)
+	if err != nil {
+		t.Fatalf("unexpected error reading keyset: %v", err)
+	}
+	parsedKeyset := insecurecleartextkeyset.KeysetMaterial(parsedHandle)
+	if !proto.Equal(tinkKeyset, parsedKeyset) {
+		t.Fatalf("parsed keyset (%s) doesn't match original keyset (%s)", parsedKeyset, tinkKeyset)
+	}
+}
+
 func TestGetKeysetInfoFromTinkKeysetHandle(t *testing.T) {
 	keyTemplate := aead.AES128GCMKeyTemplate
 	keysetHandle, err := keyset.NewHandle(keyTemplate())
@@ -251,16 +269,16 @@ func TestGetKeysetInfoFromTinkKeysetHandle(t *testing.T) {
 	}
 	// 100 is the dummy knox version id
 	tinkKeyIDToKnoxVersionID := map[uint32]uint64{keysetHandle.KeysetInfo().PrimaryKeyId: 100}
-	var tinkKeyInfo []*JSONTinkKeysetInfo_KeyInfo
+	var tinkKeyInfo []*TinkKeyInfo
 	tinkKeysetInfo := keysetHandle.KeysetInfo()
-	tinkKeyInfo = append(tinkKeyInfo, &JSONTinkKeysetInfo_KeyInfo{
+	tinkKeyInfo = append(tinkKeyInfo, &TinkKeyInfo{
 		tinkKeysetInfo.KeyInfo[0].TypeUrl,
 		tinkKeysetInfo.KeyInfo[0].Status.String(),
 		tinkKeysetInfo.KeyInfo[0].KeyId,
 		tinkKeysetInfo.KeyInfo[0].OutputPrefixType.String(),
 		100,
 	})
-	keysetInfo := JSONTinkKeysetInfo{
+	keysetInfo := TinkKeysetInfo{
 		tinkKeysetInfo.PrimaryKeyId,
 		tinkKeyInfo,
 	}
@@ -283,20 +301,20 @@ func TestNewJSONTinkKeysetInfo(t *testing.T) {
 	}
 	// 123456 is the dummy knox version id
 	tinkKeyIDToKnoxVersionID := map[uint32]uint64{keysetHandle.KeysetInfo().PrimaryKeyId: 123456}
-	var tinkKeyInfo []*JSONTinkKeysetInfo_KeyInfo
+	var tinkKeyInfo []*TinkKeyInfo
 	tinkKeysetInfo := keysetHandle.KeysetInfo()
-	tinkKeyInfo = append(tinkKeyInfo, &JSONTinkKeysetInfo_KeyInfo{
+	tinkKeyInfo = append(tinkKeyInfo, &TinkKeyInfo{
 		tinkKeysetInfo.KeyInfo[0].TypeUrl,
 		tinkKeysetInfo.KeyInfo[0].Status.String(),
 		tinkKeysetInfo.KeyInfo[0].KeyId,
 		tinkKeysetInfo.KeyInfo[0].OutputPrefixType.String(),
 		123456,
 	})
-	expected, _ := json.Marshal(JSONTinkKeysetInfo{
+	expected, _ := json.Marshal(TinkKeysetInfo{
 		tinkKeysetInfo.PrimaryKeyId,
 		tinkKeyInfo,
 	})
-	got, _ := json.Marshal(newJSONTinkKeysetInfo(keysetHandle.KeysetInfo(), tinkKeyIDToKnoxVersionID))
+	got, _ := json.Marshal(NewTinkKeysetInfo(keysetHandle.KeysetInfo(), tinkKeyIDToKnoxVersionID))
 	if string(got) != string(expected) {
 		t.Fatalf("cannot create JSONTinkKeysetInfo correctly")
 	}
@@ -310,9 +328,9 @@ func TestNewJSONTinkKeysetInfo_KeyInfo(t *testing.T) {
 	}
 	// 1234567890 is the dummy knox version id
 	tinkKeyIDToKnoxVersionID := map[uint32]uint64{keysetHandle.KeysetInfo().PrimaryKeyId: 1234567890}
-	var tinkKeyInfo []*JSONTinkKeysetInfo_KeyInfo
+	var tinkKeyInfo []*TinkKeyInfo
 	tinkKeysetInfo := keysetHandle.KeysetInfo()
-	tinkKeyInfo = append(tinkKeyInfo, &JSONTinkKeysetInfo_KeyInfo{
+	tinkKeyInfo = append(tinkKeyInfo, &TinkKeyInfo{
 		tinkKeysetInfo.KeyInfo[0].TypeUrl,
 		tinkKeysetInfo.KeyInfo[0].Status.String(),
 		tinkKeysetInfo.KeyInfo[0].KeyId,
@@ -320,7 +338,7 @@ func TestNewJSONTinkKeysetInfo_KeyInfo(t *testing.T) {
 		1234567890,
 	})
 	expected, _ := json.Marshal(tinkKeyInfo)
-	got, _ := json.Marshal(newJSONTinkKeysetInfo_KeyInfo(keysetHandle.KeysetInfo().KeyInfo, tinkKeyIDToKnoxVersionID))
+	got, _ := json.Marshal(NewTinkKeysInfo(keysetHandle.KeysetInfo().KeyInfo, tinkKeyIDToKnoxVersionID))
 	if string(got) != string(expected) {
 		t.Fatalf("cannot create JSONTinkKeysetInfo_KeyInfo correctly")
 	}

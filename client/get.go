@@ -36,8 +36,8 @@ var getVersion = cmdGet.Flag.String("v", "", "")
 var getJSON = cmdGet.Flag.Bool("j", false, "")
 var getNetwork = cmdGet.Flag.Bool("n", false, "")
 var getAll = cmdGet.Flag.Bool("a", false, "")
-var getTinkKeyset = cmdGet.Flag.Bool("tink-keyset", false, "")
-var getTinkKeysetInfo = cmdGet.Flag.Bool("tink-keyset-info", false, "")
+var getTinkKeyset = cmdGet.Flag.Bool("tink-keyset", false, "get the stored tink keyset of the given knox identifier entirely")
+var getTinkKeysetInfo = cmdGet.Flag.Bool("tink-keyset-info", false, "get the metadata of the stored tink keyset of the given knox identifier")
 
 func runGet(cmd *Command, args []string) {
 	if len(args) != 1 {
@@ -104,9 +104,8 @@ func runGet(cmd *Command, args []string) {
 }
 
 func retrieveTinkKeyset(keyID string) ([]byte, error) {
-	err := isIDforTinkKeyset(keyID)
-	if err != nil {
-		return nil, err
+	if !isIDforTinkKeyset(keyID) {
+		fatalf("this knox identifier is not for tink keyset")
 	}
 	// get primary and active versions of this knox identifier.
 	// Should we get the versions from Network or cache?
@@ -126,9 +125,8 @@ func retrieveTinkKeyset(keyID string) ([]byte, error) {
 }
 
 func retrieveTinkKeysetInfo(keyID string) (string, error) {
-	err := isIDforTinkKeyset(keyID)
-	if err != nil {
-		return "", err
+	if !isIDforTinkKeyset(keyID) {
+		fatalf("this knox identifier is not for tink keyset")
 	}
 	// get primary and active versions of this knox identifier.
 	// Should we get the versions from Network or cache?

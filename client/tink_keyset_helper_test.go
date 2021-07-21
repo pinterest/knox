@@ -269,18 +269,18 @@ func TestGetKeysetInfoFromTinkKeysetHandle(t *testing.T) {
 	}
 	// 100 is the dummy knox version id
 	tinkKeyIDToKnoxVersionID := map[uint32]uint64{keysetHandle.KeysetInfo().PrimaryKeyId: 100}
-	var tinkKeyInfo []*TinkKeyInfo
-	tinkKeysetInfo := keysetHandle.KeysetInfo()
-	tinkKeyInfo = append(tinkKeyInfo, &TinkKeyInfo{
-		tinkKeysetInfo.KeyInfo[0].TypeUrl,
-		tinkKeysetInfo.KeyInfo[0].Status.String(),
-		tinkKeysetInfo.KeyInfo[0].KeyId,
-		tinkKeysetInfo.KeyInfo[0].OutputPrefixType.String(),
+	var keysInfo []*tinkKeyInfo
+	rawKeysetInfo := keysetHandle.KeysetInfo()
+	keysInfo = append(keysInfo, &tinkKeyInfo{
+		rawKeysetInfo.KeyInfo[0].TypeUrl,
+		rawKeysetInfo.KeyInfo[0].Status.String(),
+		rawKeysetInfo.KeyInfo[0].KeyId,
+		rawKeysetInfo.KeyInfo[0].OutputPrefixType.String(),
 		100,
 	})
-	keysetInfo := TinkKeysetInfo{
-		tinkKeysetInfo.PrimaryKeyId,
-		tinkKeyInfo,
+	keysetInfo := tinkKeysetInfo{
+		rawKeysetInfo.PrimaryKeyId,
+		keysInfo,
 	}
 	keysetInfoForPrint, err := json.MarshalIndent(keysetInfo, "", "  ")
 	if err != nil {
@@ -293,7 +293,7 @@ func TestGetKeysetInfoFromTinkKeysetHandle(t *testing.T) {
 	}
 }
 
-func TestNewJSONTinkKeysetInfo(t *testing.T) {
+func TestNewTinkKeysetInfo(t *testing.T) {
 	keyTemplate := aead.AES128GCMKeyTemplate
 	keysetHandle, err := keyset.NewHandle(keyTemplate())
 	if err != nil {
@@ -301,26 +301,26 @@ func TestNewJSONTinkKeysetInfo(t *testing.T) {
 	}
 	// 123456 is the dummy knox version id
 	tinkKeyIDToKnoxVersionID := map[uint32]uint64{keysetHandle.KeysetInfo().PrimaryKeyId: 123456}
-	var tinkKeyInfo []*TinkKeyInfo
-	tinkKeysetInfo := keysetHandle.KeysetInfo()
-	tinkKeyInfo = append(tinkKeyInfo, &TinkKeyInfo{
-		tinkKeysetInfo.KeyInfo[0].TypeUrl,
-		tinkKeysetInfo.KeyInfo[0].Status.String(),
-		tinkKeysetInfo.KeyInfo[0].KeyId,
-		tinkKeysetInfo.KeyInfo[0].OutputPrefixType.String(),
+	var keysInfo []*tinkKeyInfo
+	rawKeysetInfo := keysetHandle.KeysetInfo()
+	keysInfo = append(keysInfo, &tinkKeyInfo{
+		rawKeysetInfo.KeyInfo[0].TypeUrl,
+		rawKeysetInfo.KeyInfo[0].Status.String(),
+		rawKeysetInfo.KeyInfo[0].KeyId,
+		rawKeysetInfo.KeyInfo[0].OutputPrefixType.String(),
 		123456,
 	})
-	expected, _ := json.Marshal(TinkKeysetInfo{
-		tinkKeysetInfo.PrimaryKeyId,
-		tinkKeyInfo,
+	expected, _ := json.Marshal(tinkKeysetInfo{
+		rawKeysetInfo.PrimaryKeyId,
+		keysInfo,
 	})
-	got, _ := json.Marshal(NewTinkKeysetInfo(keysetHandle.KeysetInfo(), tinkKeyIDToKnoxVersionID))
+	got, _ := json.Marshal(newTinkKeysetInfo(keysetHandle.KeysetInfo(), tinkKeyIDToKnoxVersionID))
 	if string(got) != string(expected) {
 		t.Fatalf("cannot create JSONTinkKeysetInfo correctly")
 	}
 }
 
-func TestNewJSONTinkKeysetInfo_KeyInfo(t *testing.T) {
+func TestNewTinkKeysInfo(t *testing.T) {
 	keyTemplate := aead.AES256GCMKeyTemplate
 	keysetHandle, err := keyset.NewHandle(keyTemplate())
 	if err != nil {
@@ -328,17 +328,17 @@ func TestNewJSONTinkKeysetInfo_KeyInfo(t *testing.T) {
 	}
 	// 1234567890 is the dummy knox version id
 	tinkKeyIDToKnoxVersionID := map[uint32]uint64{keysetHandle.KeysetInfo().PrimaryKeyId: 1234567890}
-	var tinkKeyInfo []*TinkKeyInfo
-	tinkKeysetInfo := keysetHandle.KeysetInfo()
-	tinkKeyInfo = append(tinkKeyInfo, &TinkKeyInfo{
-		tinkKeysetInfo.KeyInfo[0].TypeUrl,
-		tinkKeysetInfo.KeyInfo[0].Status.String(),
-		tinkKeysetInfo.KeyInfo[0].KeyId,
-		tinkKeysetInfo.KeyInfo[0].OutputPrefixType.String(),
+	var keysInfo []*tinkKeyInfo
+	rawKeysetInfo := keysetHandle.KeysetInfo()
+	keysInfo = append(keysInfo, &tinkKeyInfo{
+		rawKeysetInfo.KeyInfo[0].TypeUrl,
+		rawKeysetInfo.KeyInfo[0].Status.String(),
+		rawKeysetInfo.KeyInfo[0].KeyId,
+		rawKeysetInfo.KeyInfo[0].OutputPrefixType.String(),
 		1234567890,
 	})
-	expected, _ := json.Marshal(tinkKeyInfo)
-	got, _ := json.Marshal(NewTinkKeysInfo(keysetHandle.KeysetInfo().KeyInfo, tinkKeyIDToKnoxVersionID))
+	expected, _ := json.Marshal(keysInfo)
+	got, _ := json.Marshal(newTinkKeysInfo(keysetHandle.KeysetInfo().KeyInfo, tinkKeyIDToKnoxVersionID))
 	if string(got) != string(expected) {
 		t.Fatalf("cannot create JSONTinkKeysetInfo_KeyInfo correctly")
 	}

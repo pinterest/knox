@@ -183,7 +183,7 @@ func getKeysetInfoFromTinkKeysetHandle(
 	tinkKeyIDToKnoxVersionID map[uint32]uint64,
 ) (string, error) {
 	// translate the info from the tink build-in function to json format
-	keysetInfo := NewTinkKeysetInfo(keysetHandle.KeysetInfo(), tinkKeyIDToKnoxVersionID)
+	keysetInfo := newTinkKeysetInfo(keysetHandle.KeysetInfo(), tinkKeyIDToKnoxVersionID)
 	keysetInfoForPrint, err := json.MarshalIndent(keysetInfo, "", "  ")
 	if err != nil {
 		return "", err
@@ -191,14 +191,14 @@ func getKeysetInfoFromTinkKeysetHandle(
 	return string(keysetInfoForPrint), nil
 }
 
-// TinkKeysetInfo translates tink keyset info to JSON format, doesn't contain any actual key material.
-type TinkKeysetInfo struct {
+// tinkKeysetInfo translates tink keyset info to JSON format, doesn't contain any actual key material.
+type tinkKeysetInfo struct {
 	PrimaryKeyId uint32         `json:"primary_key_id"`
-	KeyInfo      []*TinkKeyInfo `json:"key_info"`
+	KeyInfo      []*tinkKeyInfo `json:"key_info"`
 }
 
-// TinkKeyInfo translates tink key info to JSON format, doesn't contain any actual key material.
-type TinkKeyInfo struct {
+// tinkKeyInfo translates tink key info to JSON format, doesn't contain any actual key material.
+type tinkKeyInfo struct {
 	TypeUrl          string `json:"type_url"`
 	Status           string `json:"status"`
 	KeyId            uint32 `json:"key_id"`
@@ -206,25 +206,25 @@ type TinkKeyInfo struct {
 	KnoxVersionID    uint64 `json:"knox_version_id"`
 }
 
-// NewTinkKeysetInfo translates Tink keyset info to JSON format.
-func NewTinkKeysetInfo(
+// newTinkKeysetInfo translates Tink keyset info to JSON format.
+func newTinkKeysetInfo(
 	keysetInfo *tinkpb.KeysetInfo,
 	tinkKeyIDToKnoxVersionID map[uint32]uint64,
-) TinkKeysetInfo {
-	return TinkKeysetInfo{
+) tinkKeysetInfo {
+	return tinkKeysetInfo{
 		keysetInfo.PrimaryKeyId,
-		NewTinkKeysInfo(keysetInfo.KeyInfo, tinkKeyIDToKnoxVersionID),
+		newTinkKeysInfo(keysetInfo.KeyInfo, tinkKeyIDToKnoxVersionID),
 	}
 }
 
-// NewTinkKeyInfo translates Tink key info to JSON format.
-func NewTinkKeysInfo(
+// newTinkKeyInfo translates Tink key info to JSON format.
+func newTinkKeysInfo(
 	keyseInfo_KeyInfo []*tinkpb.KeysetInfo_KeyInfo,
 	tinkKeyIDToKnoxVersionID map[uint32]uint64,
-) []*TinkKeyInfo {
-	var tinkKeysInfo []*TinkKeyInfo
+) []*tinkKeyInfo {
+	var tinkKeysInfo []*tinkKeyInfo
 	for _, v := range keyseInfo_KeyInfo {
-		tinkKeysInfo = append(tinkKeysInfo, &TinkKeyInfo{
+		tinkKeysInfo = append(tinkKeysInfo, &tinkKeyInfo{
 			v.TypeUrl,
 			v.Status.String(),
 			v.KeyId,

@@ -105,7 +105,7 @@ func runGet(cmd *Command, args []string) {
 
 func retrieveTinkKeyset(keyID string) ([]byte, error) {
 	if !isIDforTinkKeyset(keyID) {
-		fatalf("this knox identifier is not for tink keyset")
+		return nil, fmt.Errorf("this knox identifier is not for tink keyset")
 	}
 	// get primary and active versions of this knox identifier.
 	// Should we get the versions from Network or cache?
@@ -126,7 +126,7 @@ func retrieveTinkKeyset(keyID string) ([]byte, error) {
 
 func retrieveTinkKeysetInfo(keyID string) (string, error) {
 	if !isIDforTinkKeyset(keyID) {
-		fatalf("this knox identifier is not for tink keyset")
+		return "", fmt.Errorf("this knox identifier is not for tink keyset")
 	}
 	// get primary and active versions of this knox identifier.
 	// Should we get the versions from Network or cache?

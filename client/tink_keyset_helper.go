@@ -135,12 +135,12 @@ func readTinkKeysetFromBytes(data []byte) (*tinkpb.Keyset, error) {
 // received knox version list and a map from tink key IDs to knox version IDs. To be noticed, each
 // knox version contains a tink keyset that has a single tink key (tink key has a property, tink key id).
 // This func enumerates the given knox version list, put tink keys from different knox versions into
-// one tink keyset "tinkKeysetHasAllKeys". Also, this func records which tink key is from which knox
-// version in a map "tinkKeyIDToKnoxVersionID".
+// one tink keyset "fullTinkKeyset". Also, this func records which tink key is from which knox version
+// in a map "tinkKeyIDToKnoxVersionID".
 func getTinkKeysetHandleFromKnoxVersionList(
 	knoxVersionList knox.KeyVersionList,
 ) (*keyset.Handle, map[uint32]uint64, error) {
-	tinkKeysetHasAllKeys := new(tinkpb.Keyset)
+	fullTinkKeyset := new(tinkpb.Keyset)
 	tinkKeyIDToKnoxVersionID := make(map[uint32]uint64)
 	for _, v := range knoxVersionList {
 		// the data of each version is a tink keyset that contains a single tink key
@@ -150,12 +150,12 @@ func getTinkKeysetHandleFromKnoxVersionList(
 		}
 		singleKey := keyComponent.Key[0]
 		if v.Status == knox.Primary {
-			tinkKeysetHasAllKeys.PrimaryKeyId = singleKey.KeyId
+			fullTinkKeyset.PrimaryKeyId = singleKey.KeyId
 		}
-		tinkKeysetHasAllKeys.Key = append(tinkKeysetHasAllKeys.Key, singleKey)
+		fullTinkKeyset.Key = append(fullTinkKeyset.Key, singleKey)
 		tinkKeyIDToKnoxVersionID[singleKey.KeyId] = v.ID
 	}
-	keysetHandle, err := convertCleartextTinkKeysetToHandle(tinkKeysetHasAllKeys)
+	keysetHandle, err := convertCleartextTinkKeysetToHandle(fullTinkKeyset)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -219,11 +219,11 @@ func newTinkKeysetInfo(
 
 // newTinkKeyInfo translates Tink key info to JSON format.
 func newTinkKeysInfo(
-	keyseInfo_KeyInfo []*tinkpb.KeysetInfo_KeyInfo,
+	keysetInfo_KeyInfo []*tinkpb.KeysetInfo_KeyInfo,
 	tinkKeyIDToKnoxVersionID map[uint32]uint64,
 ) []*tinkKeyInfo {
 	var tinkKeysInfo []*tinkKeyInfo
-	for _, v := range keyseInfo_KeyInfo {
+	for _, v := range keysetInfo_KeyInfo {
 		tinkKeysInfo = append(tinkKeysInfo, &tinkKeyInfo{
 			v.TypeUrl,
 			v.Status.String(),

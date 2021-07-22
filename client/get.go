@@ -107,9 +107,8 @@ func retrieveTinkKeyset(keyID string) ([]byte, error) {
 	if !isIDforTinkKeyset(keyID) {
 		return nil, fmt.Errorf("this knox identifier is not for tink keyset")
 	}
-	// get primary and active versions of this knox identifier.
-	// Should we get the versions from Network or cache?
-	primaryAndActiveVersions, err := cli.NetworkGetKey(keyID)
+	// get the primary and all active versions of this knox identifier.
+	primaryAndActiveVersions, err := cli.GetKey(keyID)
 	if err != nil {
 		return nil, fmt.Errorf("error getting key: %s", err.Error())
 	}
@@ -128,9 +127,8 @@ func retrieveTinkKeysetInfo(keyID string) (string, error) {
 	if !isIDforTinkKeyset(keyID) {
 		return "", fmt.Errorf("this knox identifier is not for tink keyset")
 	}
-	// get primary and active versions of this knox identifier.
-	// Should we get the versions from Network or cache?
-	primaryAndActiveVersions, err := cli.NetworkGetKey(keyID)
+	// get the primary and all active versions of this knox identifier.
+	primaryAndActiveVersions, err := cli.GetKey(keyID)
 	if err != nil {
 		return "", fmt.Errorf("error getting key: %s", err.Error())
 	}

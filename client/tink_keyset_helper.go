@@ -2,6 +2,7 @@ package client
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"sort"
@@ -58,6 +59,16 @@ func obeyNamingRule(templateName string, knoxIentifier string) error {
 		return fmt.Errorf("<key_identifier> must have prefix '%s'", templateInfo.knoxIDPrefix)
 	}
 	return nil
+}
+
+// isIDforTinkKeyset checks whether knox identifier start with "tink:<tink_primitive_short_name>:".
+func isIDforTinkKeyset(knoxIdentifier string) bool {
+	for _, templateInfo := range tinkKeyTemplates {
+		if strings.HasPrefix(knoxIdentifier, templateInfo.knoxIDPrefix) {
+			return true
+		}
+	}
+	return false
 }
 
 // createNewTinkKeyset creates a new tink keyset contains a single fresh key from the given tink key templateFunc.
@@ -118,4 +129,108 @@ func readTinkKeysetFromBytes(data []byte) (*tinkpb.Keyset, error) {
 		return nil, fmt.Errorf("unexpected error reading tink keyset: %v", err)
 	}
 	return tinkKeyset, nil
+}
+
+// getTinkKeysetHandleFromKnoxVersionList returns a tink keyset handle that has all tink keys in the
+// received knox version list and a map from tink key IDs to knox version IDs. To be noticed, each
+// knox version contains a tink keyset that has a single tink key (tink key has a property, tink key id).
+// This func enumerates the given knox version list, put tink keys from different knox versions into
+// one tink keyset "fullTinkKeyset". Also, this func records which tink key is from which knox version
+// in a map "tinkKeyIDToKnoxVersionID".
+func getTinkKeysetHandleFromKnoxVersionList(
+	knoxVersionList knox.KeyVersionList,
+) (*keyset.Handle, map[uint32]uint64, error) {
+	fullTinkKeyset := new(tinkpb.Keyset)
+	tinkKeyIDToKnoxVersionID := make(map[uint32]uint64)
+	for _, v := range knoxVersionList {
+		// the data of each version is a tink keyset that contains a single tink key
+		keyComponent, err := readTinkKeysetFromBytes(v.Data)
+		if err != nil {
+			return nil, nil, err
+		}
+		singleKey := keyComponent.Key[0]
+		if v.Status == knox.Primary {
+			fullTinkKeyset.PrimaryKeyId = singleKey.KeyId
+		}
+		fullTinkKeyset.Key = append(fullTinkKeyset.Key, singleKey)
+		tinkKeyIDToKnoxVersionID[singleKey.KeyId] = v.ID
+	}
+	keysetHandle, err := convertCleartextTinkKeysetToHandle(fullTinkKeyset)
+	if err != nil {
+		return nil, nil, err
+	}
+	return keysetHandle, tinkKeyIDToKnoxVersionID, nil
+}
+
+// convertCleartextTinkKeysetToHandle converts cleartext tink keyset to tink keyset handle
+func convertCleartextTinkKeysetToHandle(cleartextTinkKeyset *tinkpb.Keyset) (*keyset.Handle, error) {
+	bytesBuffer := new(bytes.Buffer)
+	writer := keyset.NewBinaryWriter(bytesBuffer)
+	writer.Write(cleartextTinkKeyset)
+	reader := keyset.NewBinaryReader(bytesBuffer)
+	// To get keyset handle from cleartext keyset, must use package "insecurecleartextkeyset"
+	keysetHandle, err := insecurecleartextkeyset.Read(reader)
+	if err != nil {
+		return nil, fmt.Errorf("cannot get tink keyset handle: %v", err)
+	}
+	return keysetHandle, nil
+}
+
+// getKeysetInfoFromTinkKeysetHandle returns a string representation of the info of the given tink keyset
+// handle. The returned string which does not contain any sensitive key material.
+func getKeysetInfoFromTinkKeysetHandle(
+	keysetHandle *keyset.Handle,
+	tinkKeyIDToKnoxVersionID map[uint32]uint64,
+) (string, error) {
+	// translate the info from the tink build-in function to json format
+	keysetInfo := newTinkKeysetInfo(keysetHandle.KeysetInfo(), tinkKeyIDToKnoxVersionID)
+	keysetInfoForPrint, err := json.MarshalIndent(keysetInfo, "", "  ")
+	if err != nil {
+		return "", err
+	}
+	return string(keysetInfoForPrint), nil
+}
+
+// tinkKeysetInfo translates tink keyset info to JSON format, doesn't contain any actual key material.
+type tinkKeysetInfo struct {
+	PrimaryKeyId uint32         `json:"primary_key_id"`
+	KeyInfo      []*tinkKeyInfo `json:"key_info"`
+}
+
+// tinkKeyInfo translates tink key info to JSON format, doesn't contain any actual key material.
+type tinkKeyInfo struct {
+	TypeUrl          string `json:"type_url"`
+	Status           string `json:"status"`
+	KeyId            uint32 `json:"key_id"`
+	OutputPrefixType string `json:"output_prefix_type"`
+	KnoxVersionID    uint64 `json:"knox_version_id"`
+}
+
+// newTinkKeysetInfo translates Tink keyset info to JSON format.
+func newTinkKeysetInfo(
+	keysetInfo *tinkpb.KeysetInfo,
+	tinkKeyIDToKnoxVersionID map[uint32]uint64,
+) tinkKeysetInfo {
+	return tinkKeysetInfo{
+		keysetInfo.PrimaryKeyId,
+		newTinkKeysInfo(keysetInfo.KeyInfo, tinkKeyIDToKnoxVersionID),
+	}
+}
+
+// newTinkKeyInfo translates Tink key info to JSON format.
+func newTinkKeysInfo(
+	keysetInfo_KeyInfo []*tinkpb.KeysetInfo_KeyInfo,
+	tinkKeyIDToKnoxVersionID map[uint32]uint64,
+) []*tinkKeyInfo {
+	var tinkKeysInfo []*tinkKeyInfo
+	for _, v := range keysetInfo_KeyInfo {
+		tinkKeysInfo = append(tinkKeysInfo, &tinkKeyInfo{
+			v.TypeUrl,
+			v.Status.String(),
+			v.KeyId,
+			v.OutputPrefixType.String(),
+			tinkKeyIDToKnoxVersionID[v.KeyId],
+		})
+	}
+	return tinkKeysInfo
 }

@@ -2,9 +2,11 @@ package client
 
 import (
 	"bytes"
+	"encoding/json"
 	"strings"
 	"testing"
 
+	"github.com/golang/protobuf/proto"
 	"github.com/google/tink/go/aead"
 	"github.com/google/tink/go/insecurecleartextkeyset"
 	"github.com/google/tink/go/keyset"
@@ -49,6 +51,18 @@ func TestObeyNamingRule(t *testing.T) {
 		err := obeyNamingRule(k, legalKnoxIdentifier)
 		if err != nil {
 			t.Fatalf("cannot accept legal knox identifer for template '%s'", k)
+		}
+	}
+}
+
+func TestIsIDforTinkKeyset(t *testing.T) {
+	if isIDforTinkKeyset("invalid") {
+		t.Fatalf("cannot identify knox identifier that is not for tink keyset")
+	}
+	for _, templateInfo := range tinkKeyTemplates {
+		knoxIdentifierForTinkKeyset := templateInfo.knoxIDPrefix + "test"
+		if !isIDforTinkKeyset(knoxIdentifierForTinkKeyset) {
+			t.Fatalf("cannot identify knox identifier that is for tink keyset")
 		}
 	}
 }
@@ -171,8 +185,8 @@ func TestAddNewTinkKeyset(t *testing.T) {
 		t.Fatalf("incorrect number of keys in the keyset: %d", len(tinkKeyset.Key))
 	}
 	tinkKey := tinkKeyset.Key[0]
-	_, ok := tinkKeyIDToKnoxVersionID[tinkKey.KeyId]
-	if ok {
+	_, isDuplicated := tinkKeyIDToKnoxVersionID[tinkKey.KeyId]
+	if isDuplicated {
 		t.Fatalf("the ID of new Tink key is duplicated")
 	}
 	if tinkKeyset.PrimaryKeyId != tinkKey.KeyId {
@@ -209,5 +223,123 @@ func TestReadTinkKeysetFromBytes(t *testing.T) {
 	err = keyset.Validate(tinkKeyset)
 	if err != nil {
 		t.Fatalf("the result of readTinkKeysetFromBytes is not a valid Tink keyset")
+	}
+}
+
+func TestGetTinkKeysetHandleFromKnoxVersionList(t *testing.T) {
+	keyTemplate := aead.AES128GCMKeyTemplate
+	dummyVersionList, tinkKeyIDtoKnoxVersionID := getDummyKnoxVersionList(1000, keyTemplate)
+	keysetHandle, mapping, err := getTinkKeysetHandleFromKnoxVersionList(dummyVersionList)
+	if err != nil {
+		t.Fatalf(err.Error())
+	}
+	if _, err := aead.New(keysetHandle); err != nil {
+		t.Fatalf("cannot get primitive from generated keyset handle: %s", err)
+	}
+	for k, v := range tinkKeyIDtoKnoxVersionID {
+		if v != mapping[k] {
+			t.Fatalf("cannot map tink key id to knox version id correctly")
+		}
+	}
+}
+
+func TestConvertCleartextTinkKeysetToHandle(t *testing.T) {
+	// Create a keyset that contains a single HmacKey.
+	keyTemplate := mac.HMACSHA256Tag128KeyTemplate()
+	keysetHandle, err := keyset.NewHandle(keyTemplate)
+	if keysetHandle == nil || err != nil {
+		t.Fatalf("cannot get keyset handle: %v", err)
+	}
+	tinkKeyset := insecurecleartextkeyset.KeysetMaterial(keysetHandle)
+	parsedHandle, err := convertCleartextTinkKeysetToHandle(tinkKeyset)
+	if err != nil {
+		t.Fatalf("unexpected error reading keyset: %v", err)
+	}
+	parsedKeyset := insecurecleartextkeyset.KeysetMaterial(parsedHandle)
+	if !proto.Equal(tinkKeyset, parsedKeyset) {
+		t.Fatalf("parsed keyset (%s) doesn't match original keyset (%s)", parsedKeyset, tinkKeyset)
+	}
+}
+
+func TestGetKeysetInfoFromTinkKeysetHandle(t *testing.T) {
+	keyTemplate := aead.AES128GCMKeyTemplate
+	keysetHandle, err := keyset.NewHandle(keyTemplate())
+	if err != nil {
+		t.Fatalf("unexpected error: %s", err)
+	}
+	// 100 is the dummy knox version id
+	tinkKeyIDToKnoxVersionID := map[uint32]uint64{keysetHandle.KeysetInfo().PrimaryKeyId: 100}
+	var keysInfo []*tinkKeyInfo
+	rawKeysetInfo := keysetHandle.KeysetInfo()
+	keysInfo = append(keysInfo, &tinkKeyInfo{
+		rawKeysetInfo.KeyInfo[0].TypeUrl,
+		rawKeysetInfo.KeyInfo[0].Status.String(),
+		rawKeysetInfo.KeyInfo[0].KeyId,
+		rawKeysetInfo.KeyInfo[0].OutputPrefixType.String(),
+		100,
+	})
+	keysetInfo := tinkKeysetInfo{
+		rawKeysetInfo.PrimaryKeyId,
+		keysInfo,
+	}
+	keysetInfoForPrint, err := json.MarshalIndent(keysetInfo, "", "  ")
+	if err != nil {
+		t.Fatalf(err.Error())
+	}
+	expected := string(keysetInfoForPrint)
+	got, err := getKeysetInfoFromTinkKeysetHandle(keysetHandle, tinkKeyIDToKnoxVersionID)
+	if err != nil || expected != got {
+		t.Fatalf("cannot get keyset info in json format")
+	}
+}
+
+func TestNewTinkKeysetInfo(t *testing.T) {
+	keyTemplate := aead.AES128GCMKeyTemplate
+	keysetHandle, err := keyset.NewHandle(keyTemplate())
+	if err != nil {
+		t.Fatalf("unexpected error: %s", err)
+	}
+	// 123456 is the dummy knox version id
+	tinkKeyIDToKnoxVersionID := map[uint32]uint64{keysetHandle.KeysetInfo().PrimaryKeyId: 123456}
+	var keysInfo []*tinkKeyInfo
+	rawKeysetInfo := keysetHandle.KeysetInfo()
+	keysInfo = append(keysInfo, &tinkKeyInfo{
+		rawKeysetInfo.KeyInfo[0].TypeUrl,
+		rawKeysetInfo.KeyInfo[0].Status.String(),
+		rawKeysetInfo.KeyInfo[0].KeyId,
+		rawKeysetInfo.KeyInfo[0].OutputPrefixType.String(),
+		123456,
+	})
+	expected, _ := json.Marshal(tinkKeysetInfo{
+		rawKeysetInfo.PrimaryKeyId,
+		keysInfo,
+	})
+	got, _ := json.Marshal(newTinkKeysetInfo(keysetHandle.KeysetInfo(), tinkKeyIDToKnoxVersionID))
+	if string(got) != string(expected) {
+		t.Fatalf("cannot create JSONTinkKeysetInfo correctly")
+	}
+}
+
+func TestNewTinkKeysInfo(t *testing.T) {
+	keyTemplate := aead.AES256GCMKeyTemplate
+	keysetHandle, err := keyset.NewHandle(keyTemplate())
+	if err != nil {
+		t.Fatalf("unexpected error: %s", err)
+	}
+	// 1234567890 is the dummy knox version id
+	tinkKeyIDToKnoxVersionID := map[uint32]uint64{keysetHandle.KeysetInfo().PrimaryKeyId: 1234567890}
+	var keysInfo []*tinkKeyInfo
+	rawKeysetInfo := keysetHandle.KeysetInfo()
+	keysInfo = append(keysInfo, &tinkKeyInfo{
+		rawKeysetInfo.KeyInfo[0].TypeUrl,
+		rawKeysetInfo.KeyInfo[0].Status.String(),
+		rawKeysetInfo.KeyInfo[0].KeyId,
+		rawKeysetInfo.KeyInfo[0].OutputPrefixType.String(),
+		1234567890,
+	})
+	expected, _ := json.Marshal(keysInfo)
+	got, _ := json.Marshal(newTinkKeysInfo(keysetHandle.KeysetInfo().KeyInfo, tinkKeyIDToKnoxVersionID))
+	if string(got) != string(expected) {
+		t.Fatalf("cannot create JSONTinkKeysetInfo_KeyInfo correctly")
 	}
 }

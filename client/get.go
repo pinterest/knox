@@ -141,6 +141,9 @@ func retrieveTinkKeysetInfo(keyID string, getFromNetwork bool) (string, error) {
 	} else {
 		primaryAndActiveVersions, err = cli.GetKey(keyID)
 	}
+	if err != nil {
+		return "", fmt.Errorf("error getting key: %s", err.Error())
+	}
 	keysetHandle, tinkKeyIDToKnoxVersionID, err := getTinkKeysetHandleFromKnoxVersionList(primaryAndActiveVersions.VersionList)
 	if err != nil {
 		return "", err

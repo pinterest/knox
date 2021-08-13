@@ -102,5 +102,5 @@ func runRegister(cmd *Command, args []string) {
 		fmt.Printf("%s", string(data))
 		return
 	}
-	logf("Successfully %ved keys %v", cmdName, ks)
+	logf("Successfully %ved keys %v. Keys are updated by the daemon process every %.0f minutes. Check the log for the most recent run.", cmdName, ks, daemonRefreshTime.Minutes())
 }

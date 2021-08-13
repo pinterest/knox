@@ -46,10 +46,18 @@ func runRegister(cmd *Command, args []string) {
 	k := NewKeysFile(daemonFolder + daemonToRegister)
 	if *registerRemove && *registerKey == "" && *registerKeyFile == "" {
 		// Short circuit & handle `knox register -r`, which is expected to remove all keys
-		err := k.Overwrite([]string{})
+		err := k.Lock()
+		if err != nil {
+			fatalf("There was an error obtaining file lock: %s", err.Error())
+		}
+		err = k.Overwrite([]string{})
 		if err != nil {
 			k.Unlock()
 			fatalf("Failed to unregister all keys: %s", err.Error())
+		}
+		err = k.Unlock()
+		if err != nil {
+			errorf("There was an error unlocking register file: %s", err.Error())
 		}
 		logf("Successfully unregistered all keys.")
 		return
@@ -79,7 +87,6 @@ func runRegister(cmd *Command, args []string) {
 	} else {
 		err = k.Add(ks)
 	}
-	// Error handling
 	if err != nil {
 		k.Unlock()
 		fatalf("There was an error registering keys %v: %s", ks, err.Error())

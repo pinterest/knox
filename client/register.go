@@ -16,7 +16,7 @@ var cmdRegister = &Command{
 	Long: `
 Register will cache the key in the file system and keep it up to date using the file system.
 
--r removes all existing registered keys.
+-r removes all existing registered keys. -k or -f will instead replace all registered keys with those specified
 -k specifies a specific key identifier to register
 -f specifies a file containing a new line separated list of key identifiers
 -t specifies a timeout for getting the key from the daemon in seconds

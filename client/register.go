@@ -43,13 +43,21 @@ var registerTimeout = cmdRegister.Flag.Int("t", 5, "")
 const registerRecheckTime = 10 * time.Millisecond
 
 func runRegister(cmd *Command, args []string) {
-	if *registerKey == "" && *registerKeyFile == "" {
+	k := NewKeysFile(daemonFolder + daemonToRegister)
+	if *registerRemove && *registerKey == "" && *registerKeyFile == "" {
+		// Short circuit & handle `knox register -r`, which is expected to remove all keys
+		err := k.Overwrite([]string{})
+		if err != nil {
+			k.Unlock()
+			fatalf("Failed to unregister all keys: %s", err.Error())
+		}
+		logf("Successfully unregistered all keys.")
+		return
+	} else if *registerKey == "" && *registerKeyFile == "" {
 		fatalf("You must include a key or key file to register. see 'knox help register'")
 	}
-	k := NewKeysFile(daemonFolder + daemonToRegister)
-
+	// Get the list of keys to add
 	var err error
-	var cmdName string
 	var ks []string
 	if *registerKey == "" {
 		f := NewKeysFile(*registerKeyFile)
@@ -60,27 +68,27 @@ func runRegister(cmd *Command, args []string) {
 	} else {
 		ks = []string{*registerKey}
 	}
-
+	// Handle adding new keys to the registered file
 	err = k.Lock()
 	if err != nil {
 		fatalf("There was an error obtaining file lock: %s", err.Error())
 	}
 	if *registerRemove {
-		cmdName = "unregister"
+		logf("Attempting to overwrite existing keys with %v.", ks)
 		err = k.Overwrite(ks)
 	} else {
-		cmdName = "register"
 		err = k.Add(ks)
 	}
-
+	// Error handling
 	if err != nil {
 		k.Unlock()
-		fatalf("There was an error %ving keys %v: %s", cmdName, ks, err.Error())
+		fatalf("There was an error registering keys %v: %s", ks, err.Error())
 	}
 	err = k.Unlock()
 	if err != nil {
 		errorf("There was an error unlocking register file: %s", err.Error())
 	}
+	// If specified, force retrieval of keys
 	if *registerAndGet {
 		key, err := cli.CacheGetKey(*registerKey)
 		c := time.After(time.Duration(*registerTimeout) * time.Second)
@@ -102,5 +110,5 @@ func runRegister(cmd *Command, args []string) {
 		fmt.Printf("%s", string(data))
 		return
 	}
-	logf("Successfully %ved keys %v. Keys are updated by the daemon process every %.0f minutes. Check the log for the most recent run.", cmdName, ks, daemonRefreshTime.Minutes())
+	logf("Successfully registered keys %v. Keys are updated by the daemon process every %.0f minutes. Check the log for the most recent run.", ks, daemonRefreshTime.Minutes())
 }

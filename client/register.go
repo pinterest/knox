@@ -49,6 +49,7 @@ func runRegister(cmd *Command, args []string) {
 	k := NewKeysFile(daemonFolder + daemonToRegister)
 
 	var err error
+	var cmdName string
 	var ks []string
 	if *registerKey == "" {
 		f := NewKeysFile(*registerKeyFile)
@@ -65,14 +66,16 @@ func runRegister(cmd *Command, args []string) {
 		fatalf("There was an error obtaining file lock: %s", err.Error())
 	}
 	if *registerRemove {
+		cmdName = "unregister"
 		err = k.Overwrite(ks)
 	} else {
+		cmdName = "register"
 		err = k.Add(ks)
 	}
 
 	if err != nil {
 		k.Unlock()
-		fatalf("There was an error registering keys %v: %s", ks, err.Error())
+		fatalf("There was an error %ving keys %v: %s", cmdName, ks, err.Error())
 	}
 	err = k.Unlock()
 	if err != nil {
@@ -98,7 +101,6 @@ func runRegister(cmd *Command, args []string) {
 		}
 		fmt.Printf("%s", string(data))
 		return
-	} else {
-		logf("Successfully registered keys %v", ks)
 	}
+	logf("Successfully %ved keys %v", cmdName, ks)
 }

@@ -3,6 +3,7 @@ package client
 import (
 	"encoding/json"
 	"fmt"
+	"path"
 	"time"
 )
 
@@ -16,7 +17,7 @@ var cmdRegister = &Command{
 	Long: `
 Register will cache the key in the file system and keep it up to date using the file system.
 
--r removes all existing registered keys.
+-r removes all existing registered keys. -k or -f will instead replace all registered keys with those specified
 -k specifies a specific key identifier to register
 -f specifies a file containing a new line separated list of key identifiers
 -t specifies a timeout for getting the key from the daemon in seconds
@@ -43,11 +44,28 @@ var registerTimeout = cmdRegister.Flag.Int("t", 5, "")
 const registerRecheckTime = 10 * time.Millisecond
 
 func runRegister(cmd *Command, args []string) {
-	if *registerKey == "" && *registerKeyFile == "" {
+	k := NewKeysFile(path.Join(daemonFolder, daemonToRegister))
+	if *registerRemove && *registerKey == "" && *registerKeyFile == "" {
+		// Short circuit & handle `knox register -r`, which is expected to remove all keys
+		err := k.Lock()
+		if err != nil {
+			fatalf("There was an error obtaining file lock: %s", err.Error())
+		}
+		err = k.Overwrite([]string{})
+		if err != nil {
+			k.Unlock()
+			fatalf("Failed to unregister all keys: %s", err.Error())
+		}
+		err = k.Unlock()
+		if err != nil {
+			errorf("There was an error unlocking register file: %s", err.Error())
+		}
+		logf("Successfully unregistered all keys.")
+		return
+	} else if *registerKey == "" && *registerKeyFile == "" {
 		fatalf("You must include a key or key file to register. see 'knox help register'")
 	}
-	k := NewKeysFile(daemonFolder + daemonToRegister)
-
+	// Get the list of keys to add
 	var err error
 	var ks []string
 	if *registerKey == "" {
@@ -59,17 +77,17 @@ func runRegister(cmd *Command, args []string) {
 	} else {
 		ks = []string{*registerKey}
 	}
-
+	// Handle adding new keys to the registered file
 	err = k.Lock()
 	if err != nil {
 		fatalf("There was an error obtaining file lock: %s", err.Error())
 	}
 	if *registerRemove {
+		logf("Attempting to overwrite existing keys with %v.", ks)
 		err = k.Overwrite(ks)
 	} else {
 		err = k.Add(ks)
 	}
-
 	if err != nil {
 		k.Unlock()
 		fatalf("There was an error registering keys %v: %s", ks, err.Error())
@@ -78,6 +96,7 @@ func runRegister(cmd *Command, args []string) {
 	if err != nil {
 		errorf("There was an error unlocking register file: %s", err.Error())
 	}
+	// If specified, force retrieval of keys
 	if *registerAndGet {
 		key, err := cli.CacheGetKey(*registerKey)
 		c := time.After(time.Duration(*registerTimeout) * time.Second)
@@ -98,7 +117,6 @@ func runRegister(cmd *Command, args []string) {
 		}
 		fmt.Printf("%s", string(data))
 		return
-	} else {
-		logf("Successfully registered keys %v", ks)
 	}
+	logf("Successfully registered keys %v. Keys are updated by the daemon process every %.0f minutes. Check the log for the most recent run.", ks, daemonRefreshTime.Minutes())
 }

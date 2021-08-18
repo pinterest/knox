@@ -3,6 +3,7 @@ package client
 import (
 	"encoding/json"
 	"fmt"
+	"path"
 	"time"
 )
 
@@ -43,7 +44,7 @@ var registerTimeout = cmdRegister.Flag.Int("t", 5, "")
 const registerRecheckTime = 10 * time.Millisecond
 
 func runRegister(cmd *Command, args []string) {
-	k := NewKeysFile(daemonFolder + daemonToRegister)
+	k := NewKeysFile(path.Join(daemonFolder, daemonToRegister))
 	if *registerRemove && *registerKey == "" && *registerKeyFile == "" {
 		// Short circuit & handle `knox register -r`, which is expected to remove all keys
 		err := k.Lock()

@@ -9,26 +9,64 @@ import (
 	"os"
 	"os/user"
 	"path"
+	"path/filepath"
 
 	"golang.org/x/crypto/ssh/terminal"
 )
 
-func init() {
-	cmdLogin.Run = runLogin // break init cycle
-}
-
-var cmdLogin = &Command{
-	UsageLine: "login [username]",
-	Short:     "login as user and save authentication data",
-	Long: `
-Will authenticate user via OAuth2 password grant flow if available. Requires user to enter username and password. By default, the authentication data is saved in "~/.knox_user_auth".
+const DefaultUsageLine = "login [username]"
+const DefaultShortDescription = "login as user and save authentication data"
+const DefaultLongDescriptionFormat = `
+Will authenticate user via OAuth2 password grant flow if available. Requires user to enter username and password. The authentication data is saved in "%v".
 
 The optional username argument can specify the user that to log in as otherwise it uses the current os user.
 
 For more about knox, see https://github.com/pinterest/knox.
 
 See also: knox help auth
-	`,
+	`
+const DefaultTokenFileLocation = ".knox_user_auth"
+
+func NewLoginCommand(
+	oauthTokenEndpoint string,
+	oauthClientID string,
+	tokenFileLocation string,
+	usageLine string,
+	shortDescription string,
+	longDescription string) *Command {
+
+	runLoginAugmented := func(cmd *Command, args []string) {
+		runLogin(cmd, oauthClientID, tokenFileLocation, oauthTokenEndpoint, args)
+	}
+
+	if tokenFileLocation == "" {
+		tokenFileLocation = DefaultTokenFileLocation
+	}
+	if !filepath.IsAbs(tokenFileLocation) {
+		currentUser, err := user.Current()
+		if err != nil {
+			fatalf("Error getting OS user:" + err.Error())
+		}
+
+		tokenFileLocation = path.Join(currentUser.HomeDir, tokenFileLocation)
+	}
+
+	if usageLine == "" {
+		usageLine = DefaultUsageLine
+	}
+	if shortDescription == "" {
+		shortDescription = DefaultShortDescription
+	}
+	if longDescription == "" {
+		longDescription = fmt.Sprintf(DefaultLongDescriptionFormat, tokenFileLocation)
+	}
+
+	return &Command{
+		UsageLine: DefaultUsageLine,
+		Short:     DefaultShortDescription,
+		Long:      longDescription,
+		Run:       runLoginAugmented,
+	}
 }
 
 type authTokenResp struct {
@@ -36,7 +74,12 @@ type authTokenResp struct {
 	Error       string `json:"error"`
 }
 
-func runLogin(cmd *Command, args []string) {
+func runLogin(
+	cmd *Command,
+	oauthClientID string,
+	tokenFileLocation string,
+	oauthTokenEndpoint string,
+	args []string) ([]byte, error) {
 	var username string
 	u, err := user.Current()
 	if err != nil {
@@ -57,10 +100,10 @@ func runLogin(cmd *Command, args []string) {
 		fatalf("Problem getting password:" + err.Error())
 	}
 
-	resp, err := http.PostForm(knoxOAuthTokenEndpoint,
+	resp, err := http.PostForm(oauthTokenEndpoint,
 		url.Values{
 			"grant_type": {"password"},
-			"client_id":  {knoxAuthClientID},
+			"client_id":  {oauthClientID},
 			"username":   {username},
 			"password":   {string(password)},
 		})
@@ -79,10 +122,11 @@ func runLogin(cmd *Command, args []string) {
 	if authResp.Error != "" {
 		fatalf("Fail to authenticate: %q", authResp.Error)
 	}
-	authFile := path.Join(u.HomeDir, knoxTokenFileLocation)
-	err = ioutil.WriteFile(authFile, data, 0600)
+
+	err = ioutil.WriteFile(tokenFileLocation, data, 0600)
 	if err != nil {
 		fatalf("Failed to write auth data to file" + err.Error())
 	}
 
+	return data, err
 }

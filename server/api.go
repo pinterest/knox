@@ -58,7 +58,11 @@ func combine(f, g func(http.HandlerFunc) http.HandlerFunc) func(http.HandlerFunc
 // All routes are declared in this file. Each handler itself takes in the db and
 // auth provider interfaces and returns a handler that the is processed through
 // the API Middleware.
-func GetRouter(cryptor keydb.Cryptor, db keydb.DB, decorators [](func(http.HandlerFunc) http.HandlerFunc)) *mux.Router {
+func GetRouter(
+	cryptor keydb.Cryptor,
+	db keydb.DB,
+	decorators [](func(http.HandlerFunc) http.HandlerFunc),
+	additionalRoutes []Route) *mux.Router {
 
 	r := mux.NewRouter()
 
@@ -71,11 +75,24 @@ func GetRouter(cryptor keydb.Cryptor, db keydb.DB, decorators [](func(http.Handl
 	m := NewKeyManager(cryptor, db)
 
 	r.NotFoundHandler = setupRoute("404", m)(decorator(writeErr(errF(knox.NotFoundCode, ""))))
+
 	for _, route := range routes {
-		handler := setupRoute(route.id, m)(parseParams(route.parameters)(decorator(route.ServeHTTP)))
-		r.Handle(route.path, handler).Methods(route.method)
+		addRoute(r, route, decorator, m)
+	}
+
+	for _, route := range additionalRoutes {
+		addRoute(r, route, decorator, m)
 	}
 	return r
+}
+
+func addRoute(
+	router *mux.Router,
+	route Route,
+	routeDecorator func(f http.HandlerFunc) http.HandlerFunc,
+	keyManager KeyManager) {
+	handler := setupRoute(route.Id, keyManager)(parseParams(route.Parameters)(routeDecorator(route.ServeHTTP)))
+	router.Handle(route.Path, handler).Methods(route.Method)
 }
 
 type parameter interface {
@@ -137,12 +154,12 @@ func (p postParameter) name() string {
 	return string(p)
 }
 
-type route struct {
-	handler    func(db KeyManager, principal knox.Principal, parameters map[string]string) (interface{}, *httpError)
-	id         string
-	path       string
-	method     string
-	parameters []parameter
+type Route struct {
+	Handler    func(db KeyManager, principal knox.Principal, parameters map[string]string) (interface{}, *httpError)
+	Id         string
+	Path       string
+	Method     string
+	Parameters []parameter
 }
 
 func writeErr(apiErr *httpError) http.HandlerFunc {
@@ -187,11 +204,11 @@ func writeData(w http.ResponseWriter, data interface{}) {
 }
 
 // ServeHTTP runs API middleware and calls the underlying handler function.
-func (r route) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+func (r Route) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	db := getDB(req)
 	principal := GetPrincipal(req)
 	ps := GetParams(req)
-	data, err := r.handler(db, principal, ps)
+	data, err := r.Handler(db, principal, ps)
 
 	if err != nil {
 		writeErr(err)(w, req)

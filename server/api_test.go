@@ -44,23 +44,23 @@ func mockHandler(m KeyManager, principal knox.Principal, parameters map[string]s
 	return TESTVAL, nil
 }
 
-func mockRoute() route {
-	return route{
-		method:     "GET",
-		path:       "/v0/keys/",
-		handler:    mockHandler,
-		id:         "test1",
-		parameters: []parameter{},
+func mockRoute() Route {
+	return Route{
+		Method:     "GET",
+		Path:       "/v0/keys/",
+		Handler:    mockHandler,
+		Id:         "test1",
+		Parameters: []parameter{},
 	}
 }
 
-func mockFailureRoute() route {
-	return route{
-		method:     "GET",
-		path:       "/v0/keys/",
-		handler:    mockFailureHandler,
-		id:         "test2",
-		parameters: []parameter{},
+func mockFailureRoute() Route {
+	return Route{
+		Method:     "GET",
+		Path:       "/v0/keys/",
+		Handler:    mockFailureHandler,
+		Id:         "test2",
+		Parameters: []parameter{},
 	}
 }
 

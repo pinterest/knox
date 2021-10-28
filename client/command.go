@@ -56,11 +56,6 @@ type VisibilityParams struct {
 	Metrics func(map[string]uint64)
 }
 
-type AuthenticationParams struct {
-	AuthHandler  func() string
-	LoginCommand Command
-}
-
 var logf = func(string, ...interface{}) {}
 var errorf = func(string, ...interface{}) {}
 var daemonReportMetrics = func(map[string]uint64) {}

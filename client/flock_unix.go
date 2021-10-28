@@ -1,6 +1,7 @@
 // Based on https://github.com/boltdb/bolt/blob/master/bolt_unix.go
 // Copyright boltdb authors
 
+//go:build !windows && !plan9 && !solaris
 // +build !windows,!plan9,!solaris
 
 package client

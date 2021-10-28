@@ -85,7 +85,7 @@ func main() {
 		}),
 	}
 
-	r := server.GetRouter(cryptor, db, decorators)
+	r := server.GetRouter(cryptor, db, decorators, make([]server.Route, 0))
 
 	http.Handle("/", r)
 

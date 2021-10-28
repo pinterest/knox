@@ -56,15 +56,21 @@ type VisibilityParams struct {
 	Metrics func(map[string]uint64)
 }
 
+type AuthenticationParams struct {
+	AuthHandler  func() string
+	LoginCommand Command
+}
+
 var logf = func(string, ...interface{}) {}
 var errorf = func(string, ...interface{}) {}
 var daemonReportMetrics = func(map[string]uint64) {}
-var knoxAuthClientID = ""
-var knoxOAuthTokenEndpoint = ""
-var knoxTokenFileLocation = ""
 
 // Run is how to execute commands. It uses global variables and isn't safe to call in parallel.
-func Run(client knox.APIClient, p *VisibilityParams, tokenEndpoint, clientID string, homeRelativeTokenFileLocation string) {
+func Run(
+	client knox.APIClient,
+	p *VisibilityParams,
+	loginCommand *Command) {
+
 	cli = client
 	if p != nil {
 		if p.Logf != nil {
@@ -76,15 +82,11 @@ func Run(client knox.APIClient, p *VisibilityParams, tokenEndpoint, clientID str
 		if p.Metrics != nil {
 			daemonReportMetrics = p.Metrics
 		}
+		if loginCommand == nil {
+			fatalf("A login command was not supplied, you must supply a login command.")
+		}
 	}
-	knoxAuthClientID = clientID
-	knoxOAuthTokenEndpoint = tokenEndpoint
-	knoxTokenFileLocation = homeRelativeTokenFileLocation
-
-	if homeRelativeTokenFileLocation == "" {
-		knoxTokenFileLocation = defaultTokenFileLocation
-	}
-
+	commands = append(commands, loginCommand)
 	flag.Usage = usage
 	flag.Parse()
 
@@ -138,7 +140,6 @@ var commands = []*Command{
 	cmdReactivate,
 	cmdUpdateAccess,
 	cmdDelete,
-	cmdLogin,
 
 	// These are additional help topics
 	cmdListKeyTemplates,

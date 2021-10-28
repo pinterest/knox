@@ -11,22 +11,22 @@ import (
 	"github.com/pinterest/knox/server/auth"
 )
 
-var routes = [...]route{
+var routes = [...]Route{
 	{
-		method:  "GET",
-		id:      "getkeys",
-		path:    "/v0/keys/",
-		handler: getKeysHandler,
-		parameters: []parameter{
+		Method:  "GET",
+		Id:      "getkeys",
+		Path:    "/v0/keys/",
+		Handler: getKeysHandler,
+		Parameters: []parameter{
 			rawQueryParameter("queryString"),
 		},
 	},
 	{
-		method:  "POST",
-		id:      "postkeys",
-		path:    "/v0/keys/",
-		handler: postKeysHandler,
-		parameters: []parameter{
+		Method:  "POST",
+		Id:      "postkeys",
+		Path:    "/v0/keys/",
+		Handler: postKeysHandler,
+		Parameters: []parameter{
 			postParameter("id"),
 			postParameter("data"),
 			postParameter("acl"),
@@ -34,60 +34,60 @@ var routes = [...]route{
 	},
 
 	{
-		method:  "GET",
-		id:      "getkey",
-		path:    "/v0/keys/{keyID}/",
-		handler: getKeyHandler,
-		parameters: []parameter{
+		Method:  "GET",
+		Id:      "getkey",
+		Path:    "/v0/keys/{keyID}/",
+		Handler: getKeyHandler,
+		Parameters: []parameter{
 			urlParameter("keyID"),
 			queryParameter("status"),
 		},
 	},
 	{
-		method:  "DELETE",
-		id:      "deletekey",
-		path:    "/v0/keys/{keyID}/",
-		handler: deleteKeyHandler,
-		parameters: []parameter{
+		Method:  "DELETE",
+		Id:      "deletekey",
+		Path:    "/v0/keys/{keyID}/",
+		Handler: deleteKeyHandler,
+		Parameters: []parameter{
 			urlParameter("keyID"),
 		},
 	},
 	{
-		method:  "GET",
-		id:      "getaccess",
-		path:    "/v0/keys/{keyID}/access/",
-		handler: getAccessHandler,
-		parameters: []parameter{
+		Method:  "GET",
+		Id:      "getaccess",
+		Path:    "/v0/keys/{keyID}/access/",
+		Handler: getAccessHandler,
+		Parameters: []parameter{
 			urlParameter("keyID"),
 		},
 	},
 	{
-		method:  "PUT",
-		id:      "putaccess",
-		path:    "/v0/keys/{keyID}/access/",
-		handler: putAccessHandler,
-		parameters: []parameter{
+		Method:  "PUT",
+		Id:      "putaccess",
+		Path:    "/v0/keys/{keyID}/access/",
+		Handler: putAccessHandler,
+		Parameters: []parameter{
 			urlParameter("keyID"),
 			postParameter("access"),
 			postParameter("acl"),
 		},
 	},
 	{
-		method:  "POST",
-		id:      "postversion",
-		path:    "/v0/keys/{keyID}/versions/",
-		handler: postVersionHandler,
-		parameters: []parameter{
+		Method:  "POST",
+		Id:      "postversion",
+		Path:    "/v0/keys/{keyID}/versions/",
+		Handler: postVersionHandler,
+		Parameters: []parameter{
 			urlParameter("keyID"),
 			postParameter("data"),
 		},
 	},
 	{
-		method:  "PUT",
-		id:      "putversion",
-		path:    "/v0/keys/{keyID}/versions/{versionID}/",
-		handler: putVersionsHandler,
-		parameters: []parameter{
+		Method:  "PUT",
+		Id:      "putversion",
+		Path:    "/v0/keys/{keyID}/versions/{versionID}/",
+		Handler: putVersionsHandler,
+		Parameters: []parameter{
 			urlParameter("keyID"),
 			urlParameter("versionID"),
 			postParameter("status"),

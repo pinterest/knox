@@ -22,14 +22,14 @@ const (
 )
 
 // GetAPIError gets the HTTP error that will be returned from the server.
-func GetAPIError(r *http.Request) *httpError {
+func GetAPIError(r *http.Request) *HTTPError {
 	if rv := context.Get(r, apiErrorContext); rv != nil {
-		return rv.(*httpError)
+		return rv.(*HTTPError)
 	}
 	return nil
 }
 
-func setAPIError(r *http.Request, val *httpError) {
+func setAPIError(r *http.Request, val *HTTPError) {
 	context.Set(r, apiErrorContext, val)
 }
 

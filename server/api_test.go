@@ -37,15 +37,15 @@ func (a mockAuthTrue) IsUser(p knox.Principal) bool {
 	return true
 }
 
-func mockFailureHandler(m KeyManager, principal knox.Principal, parameters map[string]string) (interface{}, *httpError) {
+func mockFailureHandler(m KeyManager, principal knox.Principal, parameters map[string]string) (interface{}, *HTTPError) {
 	return nil, errF(knox.InternalServerErrorCode, "")
 }
 
-func mockHandler(m KeyManager, principal knox.Principal, parameters map[string]string) (interface{}, *httpError) {
+func mockHandler(m KeyManager, principal knox.Principal, parameters map[string]string) (interface{}, *HTTPError) {
 	return TESTVAL, nil
 }
 
-func additionalMockHandler(m KeyManager, principal knox.Principal, parameters map[string]string) (interface{}, *httpError) {
+func additionalMockHandler(m KeyManager, principal knox.Principal, parameters map[string]string) (interface{}, *HTTPError) {
 	return "The meaning of life is 42", nil
 }
 

@@ -15,15 +15,15 @@ import (
 	"github.com/pinterest/knox/server/keydb"
 )
 
-// httpError is the error type with knox err subcode and message for logging purposes
-type httpError struct {
+// HTTPError is the error type with knox err subcode and message for logging purposes
+type HTTPError struct {
 	Subcode int
 	Message string
 }
 
 // errF is a convience method to make an httpError.
-func errF(c int, m string) *httpError {
-	return &httpError{c, m}
+func errF(c int, m string) *HTTPError {
+	return &HTTPError{c, m}
 }
 
 // httpErrResp contain the http codes and messages to be returned back to clients.
@@ -207,7 +207,7 @@ func (p PostParameter) Name() string {
 type Route struct {
 	// Handler represents the handler function that is responsible for serving
 	// this route
-	Handler func(db KeyManager, principal knox.Principal, parameters map[string]string) (interface{}, *httpError)
+	Handler func(db KeyManager, principal knox.Principal, parameters map[string]string) (interface{}, *HTTPError)
 
 	// Id represents A unique string identifier that represents this specific
 	// route
@@ -226,7 +226,7 @@ type Route struct {
 	Parameters []Parameter
 }
 
-func writeErr(apiErr *httpError) http.HandlerFunc {
+func writeErr(apiErr *HTTPError) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		resp := new(knox.Response)
 		hostname, err := os.Hostname()

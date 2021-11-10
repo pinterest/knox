@@ -22,14 +22,14 @@ const (
 )
 
 // GetAPIError gets the HTTP error that will be returned from the server.
-func GetAPIError(r *http.Request) *httpError {
+func GetAPIError(r *http.Request) *HTTPError {
 	if rv := context.Get(r, apiErrorContext); rv != nil {
-		return rv.(*httpError)
+		return rv.(*HTTPError)
 	}
 	return nil
 }
 
-func setAPIError(r *http.Request, val *httpError) {
+func setAPIError(r *http.Request, val *HTTPError) {
 	context.Set(r, apiErrorContext, val)
 }
 
@@ -237,13 +237,13 @@ func providerMatch(provider auth.Provider, a string) (string, bool) {
 	return "", false
 }
 
-func parseParams(parameters []parameter) func(http.HandlerFunc) http.HandlerFunc {
+func parseParams(parameters []Parameter) func(http.HandlerFunc) http.HandlerFunc {
 	return func(f http.HandlerFunc) http.HandlerFunc {
 		return func(w http.ResponseWriter, r *http.Request) {
 			var ps = make(map[string]string)
 			for _, p := range parameters {
-				if s, ok := p.get(r); ok {
-					ps[p.name()] = s
+				if s, ok := p.Get(r); ok {
+					ps[p.Name()] = s
 				}
 			}
 			setParams(r, ps)

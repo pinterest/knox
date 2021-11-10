@@ -237,13 +237,13 @@ func providerMatch(provider auth.Provider, a string) (string, bool) {
 	return "", false
 }
 
-func parseParams(parameters []parameter) func(http.HandlerFunc) http.HandlerFunc {
+func parseParams(parameters []Parameter) func(http.HandlerFunc) http.HandlerFunc {
 	return func(f http.HandlerFunc) http.HandlerFunc {
 		return func(w http.ResponseWriter, r *http.Request) {
 			var ps = make(map[string]string)
 			for _, p := range parameters {
-				if s, ok := p.get(r); ok {
-					ps[p.name()] = s
+				if s, ok := p.Get(r); ok {
+					ps[p.Name()] = s
 				}
 			}
 			setParams(r, ps)

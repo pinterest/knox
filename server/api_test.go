@@ -14,6 +14,7 @@ import (
 
 	"github.com/pinterest/knox"
 	"github.com/pinterest/knox/server/auth"
+	"github.com/pinterest/knox/server/keydb"
 )
 
 const TESTVAL int = 1
@@ -44,13 +45,27 @@ func mockHandler(m KeyManager, principal knox.Principal, parameters map[string]s
 	return TESTVAL, nil
 }
 
+func additionalMockHandler(m KeyManager, principal knox.Principal, parameters map[string]string) (interface{}, *httpError) {
+	return "The meaning of life is 42", nil
+}
+
 func mockRoute() Route {
 	return Route{
 		Method:     "GET",
 		Path:       "/v0/keys/",
 		Handler:    mockHandler,
 		Id:         "test1",
-		Parameters: []parameter{},
+		Parameters: []Parameter{},
+	}
+}
+
+func additionalMockRoute() Route {
+	return Route{
+		Method:     "GET",
+		Path:       "/v0/custom/",
+		Handler:    additionalMockHandler,
+		Id:         "a-custom-route",
+		Parameters: []Parameter{},
 	}
 }
 
@@ -60,7 +75,7 @@ func mockFailureRoute() Route {
 		Path:       "/v0/keys/",
 		Handler:    mockFailureHandler,
 		Id:         "test2",
-		Parameters: []parameter{},
+		Parameters: []Parameter{},
 	}
 }
 
@@ -91,14 +106,14 @@ func TestAddDefaultAccess(t *testing.T) {
 }
 
 func TestParseFormParameter(t *testing.T) {
-	p := postParameter("key")
+	p := PostParameter("key")
 
 	r, err := http.NewRequest("POST", "http://www.com/?key=nope", strings.NewReader("nokey=yup"))
 	if err != nil {
 		t.Fatal(err.Error())
 	}
 	r.Header.Set("Content-Type", "application/x-www-form-urlencoded; param=value")
-	s, ok := p.get(r)
+	s, ok := p.Get(r)
 	if ok {
 		t.Fatal("Key parameter should not be present in post form")
 	}
@@ -108,7 +123,7 @@ func TestParseFormParameter(t *testing.T) {
 		t.Fatal(err.Error())
 	}
 	r.Header.Set("Content-Type", "application/x-www-form-urlencoded; param=value")
-	s, ok = p.get(r)
+	s, ok = p.Get(r)
 	if !ok {
 		t.Fatal("Key parameter should be present in post form")
 	}
@@ -121,7 +136,7 @@ func TestParseFormParameter(t *testing.T) {
 	if err != nil {
 		t.Fatal(err.Error())
 	}
-	s, ok = p.get(r)
+	s, ok = p.Get(r)
 	if ok {
 		t.Fatal("Key parameter should not be present in nil request body")
 	}
@@ -263,5 +278,103 @@ func TestScrub(t *testing.T) {
 	}
 	if v, ok := r["data"]; !ok || v == "secret_sauce" {
 		t.Fatal("data should be scrubbed, but still present.")
+	}
+}
+
+func TestDuplicateRouteId(t *testing.T) {
+	cryptor := keydb.NewAESGCMCryptor(0, []byte("testtesttesttest"))
+	db := keydb.NewTempDB()
+	decorators := [](func(http.HandlerFunc) http.HandlerFunc){}
+	additionalRoutes := []Route{
+		{
+			Method:  "POST",
+			Id:      "getkeys",
+			Path:    "/v3/foobar/",
+			Handler: getKeysHandler,
+			Parameters: []Parameter{
+				RawQueryParameter("queryString"),
+			},
+		},
+	}
+
+	_, err := GetRouter(cryptor, db, decorators, additionalRoutes)
+	if err == nil {
+		t.Fatal("Expected an error when two routes were provided with duplicate IDs")
+	}
+	expectedErrorMessage := fmt.Sprintf("There are ID conflicts for the route with ID: '%v'", "getkeys")
+
+	if err.Error() != expectedErrorMessage {
+		t.Fatalf(
+			"The incorrect error message was returned for a duplicate ID. "+
+				"Expected: '%v'. Actual: '%v'",
+			expectedErrorMessage, err,
+		)
+	}
+}
+
+func TestDuplicateMethodAndPath(t *testing.T) {
+	cryptor := keydb.NewAESGCMCryptor(0, []byte("testtesttesttest"))
+	db := keydb.NewTempDB()
+	decorators := [](func(http.HandlerFunc) http.HandlerFunc){}
+	additionalRoutes := []Route{
+		{
+			Method:  "GET",
+			Id:      "a-unique-id",
+			Path:    "/v0/keys/",
+			Handler: getKeysHandler,
+			Parameters: []Parameter{
+				RawQueryParameter("queryString"),
+			},
+		},
+	}
+
+	_, err := GetRouter(cryptor, db, decorators, additionalRoutes)
+	if err == nil {
+		t.Fatal("Expected an error when two routes were provided with duplicate IDs")
+	}
+	expectedErrorMessage := fmt.Sprintf(
+		"There are Method/Path conflicts for the following Route IDs: ('%v' and '%v')",
+		"getkeys", "a-unique-id")
+
+	if err.Error() != expectedErrorMessage {
+		t.Fatalf(
+			"The incorrect error message was returned for a duplicate ID. "+
+				"Expected: '%v'. Actual: '%v'",
+			expectedErrorMessage, err,
+		)
+	}
+}
+
+func TestAdditionalRouteFunctionality(t *testing.T) {
+	cryptor := keydb.NewAESGCMCryptor(0, []byte("testtesttesttest"))
+	db := keydb.NewTempDB()
+	decorators := [](func(http.HandlerFunc) http.HandlerFunc){}
+	additionalRoutes := []Route{
+		additionalMockRoute(),
+	}
+	router, err := GetRouter(cryptor, db, decorators, additionalRoutes)
+	if err != nil {
+		t.Fatalf("Did not expect an error while creating router. Details: %v", err)
+	}
+
+	r, reqErr := http.NewRequest("GET", "/v0/custom/", bytes.NewBufferString(""))
+	if reqErr != nil {
+		t.Fatalf("Error while setting up test. Details: %v", err)
+	}
+
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, r)
+	resp := &knox.Response{}
+	decoder := json.NewDecoder(w.Body)
+	err = decoder.Decode(resp)
+	if err != nil {
+		t.Fatalf("Error while getting data from additional route. Details: %v", err)
+	}
+
+	expectedResponse := "The meaning of life is 42"
+	if resp.Data != expectedResponse {
+		t.Fatalf("Error while getting data from additional route. Expected: '%v'. Actual: '%v'",
+			expectedResponse, resp.Data,
+		)
 	}
 }

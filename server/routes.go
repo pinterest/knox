@@ -17,8 +17,8 @@ var routes = [...]Route{
 		Id:      "getkeys",
 		Path:    "/v0/keys/",
 		Handler: getKeysHandler,
-		Parameters: []parameter{
-			rawQueryParameter("queryString"),
+		Parameters: []Parameter{
+			RawQueryParameter("queryString"),
 		},
 	},
 	{
@@ -26,10 +26,10 @@ var routes = [...]Route{
 		Id:      "postkeys",
 		Path:    "/v0/keys/",
 		Handler: postKeysHandler,
-		Parameters: []parameter{
-			postParameter("id"),
-			postParameter("data"),
-			postParameter("acl"),
+		Parameters: []Parameter{
+			PostParameter("id"),
+			PostParameter("data"),
+			PostParameter("acl"),
 		},
 	},
 
@@ -38,9 +38,9 @@ var routes = [...]Route{
 		Id:      "getkey",
 		Path:    "/v0/keys/{keyID}/",
 		Handler: getKeyHandler,
-		Parameters: []parameter{
-			urlParameter("keyID"),
-			queryParameter("status"),
+		Parameters: []Parameter{
+			UrlParameter("keyID"),
+			QueryParameter("status"),
 		},
 	},
 	{
@@ -48,8 +48,8 @@ var routes = [...]Route{
 		Id:      "deletekey",
 		Path:    "/v0/keys/{keyID}/",
 		Handler: deleteKeyHandler,
-		Parameters: []parameter{
-			urlParameter("keyID"),
+		Parameters: []Parameter{
+			UrlParameter("keyID"),
 		},
 	},
 	{
@@ -57,8 +57,8 @@ var routes = [...]Route{
 		Id:      "getaccess",
 		Path:    "/v0/keys/{keyID}/access/",
 		Handler: getAccessHandler,
-		Parameters: []parameter{
-			urlParameter("keyID"),
+		Parameters: []Parameter{
+			UrlParameter("keyID"),
 		},
 	},
 	{
@@ -66,10 +66,10 @@ var routes = [...]Route{
 		Id:      "putaccess",
 		Path:    "/v0/keys/{keyID}/access/",
 		Handler: putAccessHandler,
-		Parameters: []parameter{
-			urlParameter("keyID"),
-			postParameter("access"),
-			postParameter("acl"),
+		Parameters: []Parameter{
+			UrlParameter("keyID"),
+			PostParameter("access"),
+			PostParameter("acl"),
 		},
 	},
 	{
@@ -77,9 +77,9 @@ var routes = [...]Route{
 		Id:      "postversion",
 		Path:    "/v0/keys/{keyID}/versions/",
 		Handler: postVersionHandler,
-		Parameters: []parameter{
-			urlParameter("keyID"),
-			postParameter("data"),
+		Parameters: []Parameter{
+			UrlParameter("keyID"),
+			PostParameter("data"),
 		},
 	},
 	{
@@ -87,10 +87,10 @@ var routes = [...]Route{
 		Id:      "putversion",
 		Path:    "/v0/keys/{keyID}/versions/{versionID}/",
 		Handler: putVersionsHandler,
-		Parameters: []parameter{
-			urlParameter("keyID"),
-			urlParameter("versionID"),
-			postParameter("status"),
+		Parameters: []Parameter{
+			UrlParameter("keyID"),
+			UrlParameter("versionID"),
+			PostParameter("status"),
 		},
 	},
 }

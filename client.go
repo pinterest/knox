@@ -255,7 +255,7 @@ func (c *HTTPClient) CacheGetKeyWithStatus(keyID string, status VersionStatus) (
 	return &k, nil
 }
 
-// GetKeyWithStatus gets a knox key by keyID and given version status (always calls network).
+// NetworkGetKeyWithStatus gets a knox key by keyID and given version status (always calls network).
 func (c *HTTPClient) NetworkGetKeyWithStatus(keyID string, status VersionStatus) (*Key, error) {
 	// If clients need to know
 	d := url.Values{}
@@ -266,7 +266,7 @@ func (c *HTTPClient) NetworkGetKeyWithStatus(keyID string, status VersionStatus)
 	d.Set("status", string(s))
 
 	key := &Key{}
-	err = c.getHTTPData("GET", "/v0/keys/"+keyID+"/?status="+string(s), nil, key)
+	err = c.getHTTPData("GET", "/v0/keys/"+keyID+"/?status="+string(s), d, key)
 	return key, err
 }
 
@@ -303,7 +303,7 @@ func (c *HTTPClient) GetKeys(keys map[string]string) ([]string, error) {
 		d.Set(k, v)
 	}
 
-	err := c.getHTTPData("GET", "/v0/keys/?"+d.Encode(), nil, &l)
+	err := c.getHTTPData("GET", "/v0/keys/?"+d.Encode(), d, &l)
 	return l, err
 }
 

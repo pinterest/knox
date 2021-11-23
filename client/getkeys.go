@@ -11,7 +11,7 @@ var cmdGetKeys = &Command{
 	Long: `
 Get Keys takes version ids returns matching key ids if they exist.
 
-If no version ids are given it returns all version ids.
+If no version ids are given, it returns all key ids.
 
 This requires valid user or machine authentication, but there are no authorization requirements.
 

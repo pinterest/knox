@@ -247,11 +247,11 @@ func (p *GitHubProvider) getAPI(url, token string, v interface{}) error {
 	if err != nil {
 		return err
 	}
+	defer resp.Body.Close()
 	if resp.StatusCode != 200 {
 		return fmt.Errorf("API request returned status: %s", resp.Status)
 	}
 	decoder := json.NewDecoder(resp.Body)
-	defer resp.Body.Close()
 	return decoder.Decode(v)
 }
 

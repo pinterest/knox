@@ -247,12 +247,13 @@ func (p *GitHubProvider) getAPI(url, token string, v interface{}) error {
 	if err != nil {
 		return err
 	}
+	defer resp.Body.Close()
 	if resp.StatusCode != 200 {
 		return fmt.Errorf("API request returned status: %s", resp.Status)
 	}
 	decoder := json.NewDecoder(resp.Body)
-	defer resp.Body.Close()
-	return decoder.Decode(v)
+	err = decoder.Decode(v)
+	return err
 }
 
 // GitHubLoginFormat specifies the json return format for /user field.
@@ -427,6 +428,7 @@ func (c *mockHTTPClient) Do(req *http.Request) (*http.Response, error) {
 	a := req.Header.Get("Authorization")
 	if a == "" || a == "Bearer notvalid" {
 		resp.StatusCode = 400
+		resp.Body = ioutil.NopCloser(bytes.NewBuffer(nil))
 		resp.Status = "400 Unauthorized"
 
 		return resp, nil
@@ -444,6 +446,7 @@ func (c *mockHTTPClient) Do(req *http.Request) (*http.Response, error) {
 		return resp, nil
 	default:
 		resp.StatusCode = 404
+		resp.Body = ioutil.NopCloser(bytes.NewBuffer(nil))
 		resp.Status = "404 Not found"
 		return resp, nil
 	}

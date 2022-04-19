@@ -38,7 +38,7 @@ func runGetACL(cmd *Command, args []string) *ErrorStatus {
 		aEnc, err := json.Marshal(a)
 		if err != nil {
 			// malformated ACL entry considered as knox server side error
-			return &ErrorStatus{fmt.Errorf("Could not marshal entry: %s", a), true}
+			return &ErrorStatus{fmt.Errorf("Could not marshal entry: %v", a), true}
 		}
 		fmt.Println(string(aEnc))
 	}

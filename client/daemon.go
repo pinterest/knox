@@ -337,7 +337,7 @@ func (k *KeysFile) Lock() error {
 
 	// Annotate error with path to file to make debugging easier
 	if err != nil {
-		return fmt.Errorf("unable to obtain lock on file '%s': %w", k.fn, err)
+		return fmt.Errorf("unable to obtain lock on file '%s': %s", k.fn, err.Error())
 	}
 	return nil
 }
@@ -348,7 +348,7 @@ func (k *KeysFile) Unlock() error {
 
 	// Annotate error with path to file to make debugging easier
 	if err != nil {
-		return fmt.Errorf("unable to release lock on file '%s': %w", k.fn, err)
+		return fmt.Errorf("unable to release lock on file '%s': %s", k.fn, err.Error())
 	}
 	return nil
 }

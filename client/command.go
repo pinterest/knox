@@ -54,13 +54,13 @@ type VisibilityParams struct {
 	Logf    func(string, ...interface{})
 	Errorf  func(string, ...interface{})
 	SummaryMetrics func(map[string]uint64)
-	InvokeMetrics func(map[string]uint64)
+	InvokeMetrics func(map[string]string)
 }
 
 var logf = func(string, ...interface{}) {}
 var errorf = func(string, ...interface{}) {}
 var daemonReportMetrics = func(map[string]uint64) {}
-var clientInvokeMetrics = func(map[string]uint64) {}
+var clientInvokeMetrics = func(map[string]string) {}
 
 // Run is how to execute commands. It uses global variables and isn't safe to call in parallel.
 func Run(

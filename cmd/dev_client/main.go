@@ -129,7 +129,9 @@ func main() {
 		&client.VisibilityParams{
 			Logf:    log.Printf,
 			Errorf:  log.Printf,
-			Metrics: func(map[string]uint64) {}},
+			SummaryMetrics: func(map[string]uint64) {},
+			InvokeMetrics: func(map[string]string) {},
+		},
 		loginCommand,
 	)
 }

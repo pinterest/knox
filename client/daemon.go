@@ -48,12 +48,12 @@ var defaultDirPermission os.FileMode = 0777
 
 var daemonRefreshTime = 10 * time.Minute
 
-func runDaemon(cmd *Command, args []string) {
+func runDaemon(cmd *Command, args []string) *ErrorStatus {
 
 	if os.Getenv("KNOX_MACHINE_AUTH") == "" {
 		hostname, err := os.Hostname()
 		if err != nil {
-			fatalf("You're on a host with no name: %s", err.Error())
+			return &ErrorStatus{fmt.Errorf("You're on a host with no name: %s", err.Error()), false}
 		}
 		os.Setenv("KNOX_MACHINE_AUTH", hostname)
 	}
@@ -66,9 +66,10 @@ func runDaemon(cmd *Command, args []string) {
 	}
 	err := d.initialize()
 	if err != nil {
-		fatalf(err.Error())
+		return &ErrorStatus{err, false}
 	}
 	d.loop(daemonRefreshTime)
+	return nil
 }
 
 type daemon struct {
@@ -101,7 +102,7 @@ func (d *daemon) loop(refresh time.Duration) {
 		} else {
 			d.successCount++
 		}
-		logf("Update of keys completed after %d ms", time.Since(start).Milliseconds())
+		logf("Update of keys completed after %d ms", time.Since(start) * time.Millisecond)
 
 		select {
 		case event := <-watcher.Events:

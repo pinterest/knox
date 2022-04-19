@@ -43,27 +43,27 @@ var registerTimeout = cmdRegister.Flag.Int("t", 5, "")
 
 const registerRecheckTime = 10 * time.Millisecond
 
-func runRegister(cmd *Command, args []string) {
+func runRegister(cmd *Command, args []string) *ErrorStatus {
 	k := NewKeysFile(path.Join(daemonFolder, daemonToRegister))
 	if *registerRemove && *registerKey == "" && *registerKeyFile == "" {
 		// Short circuit & handle `knox register -r`, which is expected to remove all keys
 		err := k.Lock()
 		if err != nil {
-			fatalf("There was an error obtaining file lock: %s", err.Error())
+			return &ErrorStatus{fmt.Errorf("There was an error obtaining file lock: %s", err.Error()), false}
 		}
 		err = k.Overwrite([]string{})
 		if err != nil {
 			k.Unlock()
-			fatalf("Failed to unregister all keys: %s", err.Error())
+			return &ErrorStatus{fmt.Errorf("Failed to unregister all keys: %s", err.Error()), false}
 		}
 		err = k.Unlock()
 		if err != nil {
-			errorf("There was an error unlocking register file: %s", err.Error())
+			return &ErrorStatus{fmt.Errorf("There was an error unlocking register file: %s", err.Error()), false}
 		}
 		logf("Successfully unregistered all keys.")
-		return
+		return nil
 	} else if *registerKey == "" && *registerKeyFile == "" {
-		fatalf("You must include a key or key file to register. see 'knox help register'")
+		return &ErrorStatus{fmt.Errorf("You must include a key or key file to register. see 'knox help register'"), false}
 	}
 	// Get the list of keys to add
 	var err error
@@ -72,7 +72,7 @@ func runRegister(cmd *Command, args []string) {
 		f := NewKeysFile(*registerKeyFile)
 		ks, err = f.Get()
 		if err != nil {
-			fatalf("There was an error reading input key file %s", err.Error())
+			return &ErrorStatus{fmt.Errorf("There was an error reading input key file %s", err.Error()), false}
 		}
 	} else {
 		ks = []string{*registerKey}
@@ -80,7 +80,7 @@ func runRegister(cmd *Command, args []string) {
 	// Handle adding new keys to the registered file
 	err = k.Lock()
 	if err != nil {
-		fatalf("There was an error obtaining file lock: %s", err.Error())
+		return &ErrorStatus{fmt.Errorf("There was an error obtaining file lock: %s", err.Error()), false}
 	}
 	if *registerRemove {
 		logf("Attempting to overwrite existing keys with %v.", ks)
@@ -90,11 +90,11 @@ func runRegister(cmd *Command, args []string) {
 	}
 	if err != nil {
 		k.Unlock()
-		fatalf("There was an error registering keys %v: %s", ks, err.Error())
+		return &ErrorStatus{fmt.Errorf("There was an error registering keys %v: %s", ks, err.Error()), false}
 	}
 	err = k.Unlock()
 	if err != nil {
-		errorf("There was an error unlocking register file: %s", err.Error())
+		return &ErrorStatus{fmt.Errorf("There was an error unlocking register file: %s", err.Error()), false}
 	}
 	// If specified, force retrieval of keys
 	if *registerAndGet {
@@ -103,9 +103,9 @@ func runRegister(cmd *Command, args []string) {
 		for err != nil {
 			select {
 			case <-c:
-				fatalf(
+				return &ErrorStatus{fmt.Errorf(
 					"Error getting key from daemon (hit timeout after %d seconds); check knox logs for details (most recent error: %v)",
-					*registerTimeout, err)
+					*registerTimeout, err), false}
 			case <-time.After(registerRecheckTime):
 				key, err = cli.CacheGetKey(*registerKey)
 			}
@@ -113,10 +113,11 @@ func runRegister(cmd *Command, args []string) {
 		// TODO: add json vs data option?
 		data, err := json.Marshal(key)
 		if err != nil {
-			fatalf(err.Error())
+			return &ErrorStatus{err, true}
 		}
 		fmt.Printf("%s", string(data))
-		return
+		return nil
 	}
 	logf("Successfully registered keys %v. Keys are updated by the daemon process every %.0f minutes. Check the log for the most recent run.", ks, daemonRefreshTime.Minutes())
+	return nil
 }

@@ -39,9 +39,9 @@ var getAll = cmdGet.Flag.Bool("a", false, "")
 var getTinkKeyset = cmdGet.Flag.Bool("tink-keyset", false, "get the stored tink keyset of the given knox identifier entirely")
 var getTinkKeysetInfo = cmdGet.Flag.Bool("tink-keyset-info", false, "get the metadata of the stored tink keyset of the given knox identifier")
 
-func runGet(cmd *Command, args []string) {
+func runGet(cmd *Command, args []string) *ErrorStatus {
 	if len(args) != 1 {
-		fatalf("get takes only one argument. See 'knox help get'")
+		return &ErrorStatus{fmt.Errorf("get takes only one argument. See 'knox help get'"), false}
 	}
 	keyID := args[0]
 
@@ -50,18 +50,18 @@ func runGet(cmd *Command, args []string) {
 	if *getTinkKeyset {
 		tinkKeysetInBytes, err := retrieveTinkKeyset(keyID, *getNetwork)
 		if err != nil {
-			fatalf(err.Error())
+			return &ErrorStatus{err, false}
 		}
 		fmt.Printf("%s", string(tinkKeysetInBytes))
-		return
+		return nil
 	}
 	if *getTinkKeysetInfo {
 		tinkKeysetInfo, err := retrieveTinkKeysetInfo(keyID, *getNetwork)
 		if err != nil {
-			fatalf(err.Error())
+			return &ErrorStatus{err, false}
 		}
 		fmt.Println(tinkKeysetInfo)
-		return
+		return nil
 	}
 	if *getAll {
 		// By specifying status as inactive, we can get all key versions (active + inactive + primary)
@@ -79,28 +79,27 @@ func runGet(cmd *Command, args []string) {
 		}
 	}
 	if err != nil {
-		fatalf("Error getting key: %s", err.Error())
+		return &ErrorStatus{fmt.Errorf("Error getting key: %s", err.Error()), true}
 	}
 	if *getJSON {
 		data, err := json.Marshal(key)
 		if err != nil {
-			fatalf(err.Error())
+			return &ErrorStatus{err, true}
 		}
 		fmt.Printf("%s", string(data))
-		return
+		return nil
 	}
 	if *getVersion == "" {
 		fmt.Printf("%s", string(key.VersionList.GetPrimary().Data))
-		return
+		return nil
 	}
 	for _, v := range key.VersionList {
 		if strconv.FormatUint(v.ID, 10) == *getVersion {
 			fmt.Printf("%s", string(v.Data))
-			return
+			return nil
 		}
 	}
-	fatalf("Key version not found.")
-
+	return &ErrorStatus{fmt.Errorf("%s", "Key version not found."), false}
 }
 
 func retrieveTinkKeyset(keyID string, getFromNetwork bool) ([]byte, error) {

@@ -35,8 +35,8 @@ func NewLoginCommand(
 	shortDescription string,
 	longDescription string) *Command {
 
-	runLoginAugmented := func(cmd *Command, args []string) {
-		runLogin(cmd, oauthClientID, tokenFileLocation, oauthTokenEndpoint, args)
+	runLoginAugmented := func(cmd *Command, args []string) *ErrorStatus {
+		return runLogin(cmd, oauthClientID, tokenFileLocation, oauthTokenEndpoint, args)
 	}
 
 	if tokenFileLocation == "" {
@@ -79,11 +79,11 @@ func runLogin(
 	oauthClientID string,
 	tokenFileLocation string,
 	oauthTokenEndpoint string,
-	args []string) ([]byte, error) {
+	args []string) *ErrorStatus {
 	var username string
 	u, err := user.Current()
 	if err != nil {
-		fatalf("Error getting OS user:" + err.Error())
+		return &ErrorStatus{fmt.Errorf("Error getting OS user: %s", err.Error()), false}
 	}
 	switch len(args) {
 	case 0:
@@ -91,13 +91,13 @@ func runLogin(
 	case 1:
 		username = args[0]
 	default:
-		fatalf("Invalid arguments. See 'knox login -h'")
+		return &ErrorStatus{fmt.Errorf("Invalid arguments. See 'knox login -h'"), false}
 	}
 
 	fmt.Println("Please enter your password:")
 	password, err := terminal.ReadPassword(int(os.Stdin.Fd()))
 	if err != nil {
-		fatalf("Problem getting password:" + err.Error())
+		return &ErrorStatus{fmt.Errorf("Problem getting password: %s", err.Error()), false}
 	}
 
 	resp, err := http.PostForm(oauthTokenEndpoint,
@@ -108,25 +108,26 @@ func runLogin(
 			"password":   {string(password)},
 		})
 	if err != nil {
-		fatalf("Error connecting to auth:" + err.Error())
+		// this is not Knox server error, thus assigning serverError as false
+		return &ErrorStatus{fmt.Errorf("Error connecting to auth: %s", err.Error()), false}
 	}
 	var authResp authTokenResp
 	data, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		fatalf("Failed to read data" + err.Error())
+		return &ErrorStatus{fmt.Errorf("Failed to read data: %s", err.Error()), false}
 	}
 	err = json.Unmarshal(data, &authResp)
 	if err != nil {
-		fatalf("Unexpected response from auth" + err.Error() + "data: " + string(data))
+		return &ErrorStatus{fmt.Errorf("Unexpected response from auth" + err.Error() + "data: " + string(data)), false}
 	}
 	if authResp.Error != "" {
-		fatalf("Fail to authenticate: %q", authResp.Error)
+		return &ErrorStatus{fmt.Errorf("Fail to authenticate: %q", authResp.Error), false}
 	}
 
 	err = ioutil.WriteFile(tokenFileLocation, data, 0600)
 	if err != nil {
-		fatalf("Failed to write auth data to file" + err.Error())
+		return &ErrorStatus{fmt.Errorf("Failed to write auth data to file: %s", err.Error()), false}
 	}
 
-	return data, err
+	return nil
 }

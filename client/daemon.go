@@ -102,7 +102,7 @@ func (d *daemon) loop(refresh time.Duration) {
 		} else {
 			d.successCount++
 		}
-		logf("Update of keys completed after %d ms", time.Since(start) * time.Millisecond)
+		logf("Update of keys completed after %d ms", time.Since(start)*time.Millisecond)
 
 		select {
 		case event := <-watcher.Events:

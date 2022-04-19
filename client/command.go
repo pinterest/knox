@@ -51,10 +51,10 @@ var cli knox.APIClient
 
 // VisibilityParams exposes functions for the knox client to provide information
 type VisibilityParams struct {
-	Logf    func(string, ...interface{})
-	Errorf  func(string, ...interface{})
+	Logf           func(string, ...interface{})
+	Errorf         func(string, ...interface{})
 	SummaryMetrics func(map[string]uint64)
-	InvokeMetrics func(map[string]string)
+	InvokeMetrics  func(map[string]string)
 }
 
 var logf = func(string, ...interface{}) {}

@@ -122,7 +122,7 @@ func Run(
 			}
 			clientInvokeMetrics(map[string]string{
 				"metrics_key": metricsKey,
-				"method_name": cmd.Name(),
+				"method_name": fmt.Sprintf("client_%s", cmd.Name()),
 			})
 			if errorStatus != nil {
 				fatalf(errorStatus.Error())

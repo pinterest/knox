@@ -94,6 +94,7 @@ func (d *daemon) loop(refresh time.Duration) {
 
 	for {
 		logf("Daemon updating all registered keys")
+		start := time.Now()
 		err := d.update()
 		if err != nil {
 			d.updateErrCount++
@@ -101,6 +102,7 @@ func (d *daemon) loop(refresh time.Duration) {
 		} else {
 			d.successCount++
 		}
+		logf("Update of keys completed after %d ms", time.Since(start).Milliseconds())
 
 		select {
 		case event := <-watcher.Events:

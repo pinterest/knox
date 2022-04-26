@@ -35,9 +35,9 @@ See also: knox add, knox get
 }
 var createTinkKeyset = cmdCreate.Flag.String("key-template", "", "name of a knox-supported Tink key template")
 
-func runCreate(cmd *Command, args []string) {
+func runCreate(cmd *Command, args []string) *ErrorStatus {
 	if len(args) != 1 {
-		fatalf("create takes exactly one argument. See 'knox help create'")
+		return &ErrorStatus{fmt.Errorf("create takes exactly one argument. See 'knox help create'"), false}
 	}
 	keyID := args[0]
 	var data []byte
@@ -46,22 +46,23 @@ func runCreate(cmd *Command, args []string) {
 		templateName := *createTinkKeyset
 		err = obeyNamingRule(templateName, keyID)
 		if err != nil {
-			fatalf(err.Error())
+			return &ErrorStatus{err, false}
 		}
 		data, err = createNewTinkKeyset(tinkKeyTemplates[templateName].templateFunc)
 	} else {
 		data, err = readDataFromStdin()
 	}
 	if err != nil {
-		fatalf(err.Error())
+		return &ErrorStatus{err, false}
 	}
 	// TODO(devinlundberg): allow ACL to be entered as input
 	acl := knox.ACL{}
 	versionID, err := cli.CreateKey(keyID, data, acl)
 	if err != nil {
-		fatalf("Error adding version: %s", err.Error())
+		return &ErrorStatus{fmt.Errorf("Error adding version: %s", err.Error()), true}
 	}
 	fmt.Printf("Created key with initial version %d\n", versionID)
+	return nil
 }
 
 func readDataFromStdin() ([]byte, error) {

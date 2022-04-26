@@ -17,14 +17,15 @@ See also: knox create
     `,
 }
 
-func runDelete(cmd *Command, args []string) {
+func runDelete(cmd *Command, args []string) *ErrorStatus {
 	if len(args) != 1 {
-		fatalf("create takes exactly one argument. See 'knox help delete'")
+		return &ErrorStatus{fmt.Errorf("create takes exactly one argument. See 'knox help delete'"), false}
 	}
 
 	err := cli.DeleteKey(args[0])
 	if err != nil {
-		fatalf("Error deleting key: %s", err.Error())
+		return &ErrorStatus{fmt.Errorf("Error deleting key: %s", err.Error()), true}
 	}
 	fmt.Printf("Successfully deleted key\n")
+	return nil
 }

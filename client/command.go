@@ -54,13 +54,13 @@ type VisibilityParams struct {
 	Logf           func(string, ...interface{})
 	Errorf         func(string, ...interface{})
 	SummaryMetrics func(map[string]uint64)
-	InvokeMetrics  func(map[string]string)
+	InvokeMetrics  func(responseType, methodName string)
 }
 
 var logf = func(string, ...interface{}) {}
 var errorf = func(string, ...interface{}) {}
 var daemonReportMetrics = func(map[string]uint64) {}
-var clientInvokeMetrics = func(map[string]string) {}
+var clientInvokeMetrics = func(responseType, methodName string) {}
 
 // Run is how to execute commands. It uses global variables and isn't safe to call in parallel.
 func Run(
@@ -110,20 +110,17 @@ func Run(
 				args = cmd.Flag.Args()
 			}
 			errorStatus := cmd.Run(cmd, args)
-			var metricsKey string
+			var responseType string
 			if errorStatus != nil {
 				if errorStatus.serverError {
-					metricsKey = "failure"
+					responseType = "failure"
 				} else {
-					metricsKey = "ignored_failure"
+					responseType = "ignored_failure"
 				}
 			} else {
-				metricsKey = "success"
+				responseType = "success"
 			}
-			clientInvokeMetrics(map[string]string{
-				"metrics_key": metricsKey,
-				"method_name": fmt.Sprintf("client_%s", cmd.Name()),
-			})
+			clientInvokeMetrics(responseType, fmt.Sprintf("client_%s", cmd.Name()))
 			if errorStatus != nil {
 				fatalf(errorStatus.Error())
 			}

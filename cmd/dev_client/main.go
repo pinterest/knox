@@ -130,7 +130,7 @@ func main() {
 			Logf:           log.Printf,
 			Errorf:         log.Printf,
 			SummaryMetrics: func(map[string]uint64) {},
-			InvokeMetrics:  func(map[string]string) {},
+			InvokeMetrics:  func(string, string) {},
 		},
 		loginCommand,
 	)

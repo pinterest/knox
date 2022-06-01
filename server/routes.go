@@ -152,6 +152,9 @@ func postKeysHandler(m KeyManager, principal knox.Principal, parameters map[stri
 	if !dataOK {
 		return nil, errF(knox.NoKeyDataCode, "Missing parameter 'data'")
 	}
+	if data == "" {
+		return nil, errF(knox.NoKeyDataCode, "Parameter 'data' is empty")
+	}
 	aclStr, aclOK := parameters["acl"]
 
 	acl := make(knox.ACL, 0)
@@ -347,9 +350,15 @@ func postVersionHandler(m KeyManager, principal knox.Principal, parameters map[s
 	if !dataOK {
 		return nil, errF(knox.BadRequestDataCode, "Missing parameter 'data'")
 	}
+	if dataStr == "" {
+		return nil, errF(knox.BadRequestDataCode, "Parameter 'data' is empty")
+	}
 	decodedData, decodeErr := base64.StdEncoding.DecodeString(dataStr)
 	if decodeErr != nil {
 		return nil, errF(knox.BadRequestDataCode, decodeErr.Error())
+	}
+	if decodedData == nil {
+		return nil, errF(knox.BadRequestDataCode, "Parameter 'data' decoded to nil")
 	}
 
 	// Get the key

@@ -129,6 +129,11 @@ func TestPostKeys(t *testing.T) {
 		t.Fatal("Expected err")
 	}
 
+	_, err = postKeysHandler(m, u, map[string]string{"id": "a1", "data": ""})
+	if err == nil {
+		t.Fatal("Expected err")
+	}
+
 	j, err := postKeysHandler(m, u, map[string]string{"id": "a2", "data": "MQ==", "acl": "[]"})
 	if err != nil {
 		t.Fatalf("%+v is not nil", err)
@@ -469,6 +474,11 @@ func TestPostVersion(t *testing.T) {
 	}
 
 	_, err = postVersionHandler(m, u, map[string]string{"keyID": "a1", "data": "NOTBASE64"})
+	if err == nil {
+		t.Fatal("Expected err")
+	}
+
+	_, err = postVersionHandler(m, u, map[string]string{"keyID": "a1", "data": ""})
 	if err == nil {
 		t.Fatal("Expected err")
 	}

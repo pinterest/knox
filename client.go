@@ -255,15 +255,13 @@ func (c *HTTPClient) CacheGetKeyWithStatus(keyID string, status VersionStatus) (
 	return &k, nil
 }
 
-// GetKeyWithStatus gets a knox key by keyID and given version status (always calls network).
+// NetworkGetKeyWithStatus gets a knox key by keyID and given version status (always calls network).
 func (c *HTTPClient) NetworkGetKeyWithStatus(keyID string, status VersionStatus) (*Key, error) {
 	// If clients need to know
-	d := url.Values{}
 	s, err := status.MarshalJSON()
 	if err != nil {
 		return nil, err
 	}
-	d.Set("status", string(s))
 
 	key := &Key{}
 	err = c.getHTTPData("GET", "/v0/keys/"+keyID+"/?status="+string(s), nil, key)
@@ -385,16 +383,11 @@ func (c *HTTPClient) getHTTPData(method string, path string, body url.Values, da
 		return err
 	}
 
+	resp := &Response{}
+	resp.Data = data
 	// Contains retry logic if we decode a 500 error.
 	for i := 1; i <= maxRetryAttempts; i++ {
-		w, err := cli.Do(r)
-		if err != nil {
-			return err
-		}
-		resp := &Response{}
-		resp.Data = data
-		decoder := json.NewDecoder(w.Body)
-		err = decoder.Decode(resp)
+		err = getHTTPResp(cli, r, resp)
 		if err != nil {
 			return err
 		}
@@ -409,6 +402,17 @@ func (c *HTTPClient) getHTTPData(method string, path string, body url.Values, da
 	}
 
 	return nil
+}
+
+func getHTTPResp(cli HTTP, r *http.Request, resp *Response) error {
+	w, err := cli.Do(r)
+	if err != nil {
+		return err
+	}
+	defer w.Body.Close()
+
+	decoder := json.NewDecoder(w.Body)
+	return decoder.Decode(resp)
 }
 
 // MockClient builds a client that ignores certs and talks to the given host.

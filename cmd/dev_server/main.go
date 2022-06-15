@@ -85,7 +85,10 @@ func main() {
 		}),
 	}
 
-	r := server.GetRouter(cryptor, db, decorators)
+	r, err := server.GetRouter(cryptor, db, decorators, make([]server.Route, 0))
+	if err != nil {
+		errLogger.Fatal(err)
+	}
 
 	http.Handle("/", r)
 

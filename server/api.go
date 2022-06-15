@@ -2,6 +2,7 @@ package server
 
 import (
 	"encoding/json"
+	"fmt"
 	"math/rand"
 	"net/http"
 	"os"
@@ -14,15 +15,15 @@ import (
 	"github.com/pinterest/knox/server/keydb"
 )
 
-// httpError is the error type with knox err subcode and message for logging purposes
-type httpError struct {
+// HTTPError is the error type with knox err subcode and message for logging purposes
+type HTTPError struct {
 	Subcode int
 	Message string
 }
 
 // errF is a convience method to make an httpError.
-func errF(c int, m string) *httpError {
-	return &httpError{c, m}
+func errF(c int, m string) *HTTPError {
+	return &HTTPError{c, m}
 }
 
 // httpErrResp contain the http codes and messages to be returned back to clients.
@@ -58,7 +59,41 @@ func combine(f, g func(http.HandlerFunc) http.HandlerFunc) func(http.HandlerFunc
 // All routes are declared in this file. Each handler itself takes in the db and
 // auth provider interfaces and returns a handler that the is processed through
 // the API Middleware.
-func GetRouter(cryptor keydb.Cryptor, db keydb.DB, decorators [](func(http.HandlerFunc) http.HandlerFunc)) *mux.Router {
+func GetRouter(
+	cryptor keydb.Cryptor,
+	db keydb.DB,
+	decorators [](func(http.HandlerFunc) http.HandlerFunc),
+	additionalRoutes []Route) (*mux.Router, error) {
+
+	existingRouteIds := map[string]Route{}
+	existingRouteMethodAndPaths := map[string]map[string]Route{}
+	allRoutes := append(routes[:], additionalRoutes[:]...)
+
+	for _, route := range allRoutes {
+		if _, routeExists := existingRouteIds[route.Id]; routeExists {
+			return nil, fmt.Errorf(
+				"There are ID conflicts for the route with ID: '%v'",
+				route.Id,
+			)
+		}
+		childMap, methodExists := existingRouteMethodAndPaths[route.Method]
+		if !methodExists {
+			childMap := map[string]Route{
+				route.Path: route,
+			}
+			existingRouteMethodAndPaths[route.Method] = childMap
+		} else {
+			if conflictingRoute, pathExists := childMap[route.Path]; pathExists {
+				return nil, fmt.Errorf(
+					"There are Method/Path conflicts for the following Route IDs: ('%v' and '%v')",
+					conflictingRoute.Id, route.Id,
+				)
+			}
+		}
+
+		existingRouteMethodAndPaths[route.Method][route.Path] = route
+		existingRouteIds[route.Id] = route
+	}
 
 	r := mux.NewRouter()
 
@@ -71,43 +106,67 @@ func GetRouter(cryptor keydb.Cryptor, db keydb.DB, decorators [](func(http.Handl
 	m := NewKeyManager(cryptor, db)
 
 	r.NotFoundHandler = setupRoute("404", m)(decorator(writeErr(errF(knox.NotFoundCode, ""))))
-	for _, route := range routes {
-		handler := setupRoute(route.id, m)(parseParams(route.parameters)(decorator(route.ServeHTTP)))
-		r.Handle(route.path, handler).Methods(route.method)
+
+	for _, route := range allRoutes {
+		addRoute(r, route, decorator, m)
 	}
-	return r
+	return r, nil
 }
 
-type parameter interface {
-	name() string
-	get(r *http.Request) (string, bool)
+func addRoute(
+	router *mux.Router,
+	route Route,
+	routeDecorator func(f http.HandlerFunc) http.HandlerFunc,
+	keyManager KeyManager) {
+	handler := setupRoute(route.Id, keyManager)(parseParams(route.Parameters)(routeDecorator(route.ServeHTTP)))
+	router.Handle(route.Path, handler).Methods(route.Method)
 }
 
-type urlParameter string
+// Parameter is an interface through which route-specific Knox API Parameters
+// can be specified
+type Parameter interface {
+	Name() string
+	Get(r *http.Request) (string, bool)
+}
 
-// Get returns the url
-func (p urlParameter) get(r *http.Request) (string, bool) {
+// UrlParameter is an implementation of the Parameter interface that extracts
+// parameter values from the URL as referenced in section 3.3 of RFC2396.
+type UrlParameter string
+
+// Get returns the value of the URL parameter
+func (p UrlParameter) Get(r *http.Request) (string, bool) {
 	s, ok := mux.Vars(r)[string(p)]
 	return s, ok
 }
 
-func (p urlParameter) name() string {
+// Name defines the URL-embedded key that this parameter maps to
+func (p UrlParameter) Name() string {
 	return string(p)
 }
 
-type rawQueryParameter string
+// RawQueryParameter is an implementation of the Parameter interface that
+// extracts the complete query string from the request URL
+// as referenced in section 3.4 of RFC2396.
+type RawQueryParameter string
 
-func (p rawQueryParameter) get(r *http.Request) (string, bool) {
+// Get returns the value of the entire query string
+func (p RawQueryParameter) Get(r *http.Request) (string, bool) {
 	return r.URL.RawQuery, true
 }
 
-func (p rawQueryParameter) name() string {
+// Name represents the key-name that will be set for the raw query string
+// in the `parameters` map of the route handler function.
+func (p RawQueryParameter) Name() string {
 	return string(p)
 }
 
-type queryParameter string
+// QueryParameter is an implementation of the Parameter interface that extracts
+// specific parameter values from the query string of the request URL
+// as referenced in section 3.4 of RFC2396.
+type QueryParameter string
 
-func (p queryParameter) get(r *http.Request) (string, bool) {
+// Get returns the value of the query string parameter
+func (p QueryParameter) Get(r *http.Request) (string, bool) {
 	val, ok := r.URL.Query()[string(p)]
 	if !ok {
 		return "", false
@@ -115,13 +174,18 @@ func (p queryParameter) get(r *http.Request) (string, bool) {
 	return val[0], true
 }
 
-func (p queryParameter) name() string {
+// Name defines the URL-embedded key that this parameter maps to
+func (p QueryParameter) Name() string {
 	return string(p)
 }
 
-type postParameter string
+// PostParameter is an implementation of the Parameter interface that
+// extracts values embedded in the web form transmitted in the
+// request body
+type PostParameter string
 
-func (p postParameter) get(r *http.Request) (string, bool) {
+// Get returns the value of the appropriate parameter from the request body
+func (p PostParameter) Get(r *http.Request) (string, bool) {
 	err := r.ParseForm()
 	if err != nil {
 		return "", false
@@ -133,19 +197,36 @@ func (p postParameter) get(r *http.Request) (string, bool) {
 	return k[0], ok
 }
 
-func (p postParameter) name() string {
+// Name represents the key corresponding to this parameter in the request form
+func (p PostParameter) Name() string {
 	return string(p)
 }
 
-type route struct {
-	handler    func(db KeyManager, principal knox.Principal, parameters map[string]string) (interface{}, *httpError)
-	id         string
-	path       string
-	method     string
-	parameters []parameter
+// Route is a struct that defines a path and method-specific
+// HTTP route on the Knox server
+type Route struct {
+	// Handler represents the handler function that is responsible for serving
+	// this route
+	Handler func(db KeyManager, principal knox.Principal, parameters map[string]string) (interface{}, *HTTPError)
+
+	// Id represents A unique string identifier that represents this specific
+	// route
+	Id string
+
+	// Path represents the relative HTTP path (or prefix) that must be specified
+	//  in order to invoke this route
+	Path string
+
+	// Method represents the HTTP method that must be specified in order to
+	// invoke this route
+	Method string
+
+	// Parameters is an array that represents the route-specific parameters
+	// that will be passed to the handler function
+	Parameters []Parameter
 }
 
-func writeErr(apiErr *httpError) http.HandlerFunc {
+func writeErr(apiErr *HTTPError) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		resp := new(knox.Response)
 		hostname, err := os.Hostname()
@@ -187,11 +268,11 @@ func writeData(w http.ResponseWriter, data interface{}) {
 }
 
 // ServeHTTP runs API middleware and calls the underlying handler function.
-func (r route) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+func (r Route) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	db := getDB(req)
 	principal := GetPrincipal(req)
 	ps := GetParams(req)
-	data, err := r.handler(db, principal, ps)
+	data, err := r.Handler(db, principal, ps)
 
 	if err != nil {
 		writeErr(err)(w, req)

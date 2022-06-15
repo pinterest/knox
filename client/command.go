@@ -51,20 +51,23 @@ var cli knox.APIClient
 
 // VisibilityParams exposes functions for the knox client to provide information
 type VisibilityParams struct {
-	Logf    func(string, ...interface{})
-	Errorf  func(string, ...interface{})
-	Metrics func(map[string]uint64)
+	Logf           func(string, ...interface{})
+	Errorf         func(string, ...interface{})
+	SummaryMetrics func(map[string]uint64)
+	InvokeMetrics  func(map[string]string)
 }
 
 var logf = func(string, ...interface{}) {}
 var errorf = func(string, ...interface{}) {}
 var daemonReportMetrics = func(map[string]uint64) {}
-var knoxAuthClientID = ""
-var knoxOAuthTokenEndpoint = ""
-var knoxTokenFileLocation = ""
+var clientInvokeMetrics = func(map[string]string) {}
 
 // Run is how to execute commands. It uses global variables and isn't safe to call in parallel.
-func Run(client knox.APIClient, p *VisibilityParams, tokenEndpoint, clientID string, homeRelativeTokenFileLocation string) {
+func Run(
+	client knox.APIClient,
+	p *VisibilityParams,
+	loginCommand *Command) {
+
 	cli = client
 	if p != nil {
 		if p.Logf != nil {
@@ -73,18 +76,17 @@ func Run(client knox.APIClient, p *VisibilityParams, tokenEndpoint, clientID str
 		if p.Errorf != nil {
 			errorf = p.Errorf
 		}
-		if p.Metrics != nil {
-			daemonReportMetrics = p.Metrics
+		if p.SummaryMetrics != nil {
+			daemonReportMetrics = p.SummaryMetrics
+		}
+		if p.InvokeMetrics != nil {
+			clientInvokeMetrics = p.InvokeMetrics
+		}
+		if loginCommand == nil {
+			fatalf("A login command was not supplied, you must supply a login command.")
 		}
 	}
-	knoxAuthClientID = clientID
-	knoxOAuthTokenEndpoint = tokenEndpoint
-	knoxTokenFileLocation = homeRelativeTokenFileLocation
-
-	if homeRelativeTokenFileLocation == "" {
-		knoxTokenFileLocation = defaultTokenFileLocation
-	}
-
+	commands = append(commands, loginCommand)
 	flag.Usage = usage
 	flag.Parse()
 
@@ -107,7 +109,24 @@ func Run(client knox.APIClient, p *VisibilityParams, tokenEndpoint, clientID str
 				cmd.Flag.Parse(args[1:])
 				args = cmd.Flag.Args()
 			}
-			cmd.Run(cmd, args)
+			errorStatus := cmd.Run(cmd, args)
+			var metricsKey string
+			if errorStatus != nil {
+				if errorStatus.serverError {
+					metricsKey = "failure"
+				} else {
+					metricsKey = "ignored_failure"
+				}
+			} else {
+				metricsKey = "success"
+			}
+			clientInvokeMetrics(map[string]string{
+				"metrics_key": metricsKey,
+				"method_name": fmt.Sprintf("client_%s", cmd.Name()),
+			})
+			if errorStatus != nil {
+				fatalf(errorStatus.Error())
+			}
 			exit()
 			return
 		}
@@ -138,7 +157,6 @@ var commands = []*Command{
 	cmdReactivate,
 	cmdUpdateAccess,
 	cmdDelete,
-	cmdLogin,
 
 	// These are additional help topics
 	cmdListKeyTemplates,
@@ -151,7 +169,7 @@ var commands = []*Command{
 type Command struct {
 	// Run runs the command.
 	// The args are the arguments after the command name.
-	Run func(cmd *Command, args []string)
+	Run func(cmd *Command, args []string) *ErrorStatus
 
 	// UsageLine is the one-line usage message.
 	// The first word in the line is taken to be the command name.
@@ -169,6 +187,12 @@ type Command struct {
 	// CustomFlags indicates that the command will do its own
 	// flag parsing.
 	CustomFlags bool
+}
+
+// ErrorStatus wraps the error status of knox client command execution
+type ErrorStatus struct {
+	error
+	serverError bool
 }
 
 // Name returns the command's name: the first word in the usage line.

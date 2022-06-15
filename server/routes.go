@@ -11,86 +11,86 @@ import (
 	"github.com/pinterest/knox/server/auth"
 )
 
-var routes = [...]route{
+var routes = [...]Route{
 	{
-		method:  "GET",
-		id:      "getkeys",
-		path:    "/v0/keys/",
-		handler: getKeysHandler,
-		parameters: []parameter{
-			rawQueryParameter("queryString"),
+		Method:  "GET",
+		Id:      "getkeys",
+		Path:    "/v0/keys/",
+		Handler: getKeysHandler,
+		Parameters: []Parameter{
+			RawQueryParameter("queryString"),
 		},
 	},
 	{
-		method:  "POST",
-		id:      "postkeys",
-		path:    "/v0/keys/",
-		handler: postKeysHandler,
-		parameters: []parameter{
-			postParameter("id"),
-			postParameter("data"),
-			postParameter("acl"),
+		Method:  "POST",
+		Id:      "postkeys",
+		Path:    "/v0/keys/",
+		Handler: postKeysHandler,
+		Parameters: []Parameter{
+			PostParameter("id"),
+			PostParameter("data"),
+			PostParameter("acl"),
 		},
 	},
 
 	{
-		method:  "GET",
-		id:      "getkey",
-		path:    "/v0/keys/{keyID}/",
-		handler: getKeyHandler,
-		parameters: []parameter{
-			urlParameter("keyID"),
-			queryParameter("status"),
+		Method:  "GET",
+		Id:      "getkey",
+		Path:    "/v0/keys/{keyID}/",
+		Handler: getKeyHandler,
+		Parameters: []Parameter{
+			UrlParameter("keyID"),
+			QueryParameter("status"),
 		},
 	},
 	{
-		method:  "DELETE",
-		id:      "deletekey",
-		path:    "/v0/keys/{keyID}/",
-		handler: deleteKeyHandler,
-		parameters: []parameter{
-			urlParameter("keyID"),
+		Method:  "DELETE",
+		Id:      "deletekey",
+		Path:    "/v0/keys/{keyID}/",
+		Handler: deleteKeyHandler,
+		Parameters: []Parameter{
+			UrlParameter("keyID"),
 		},
 	},
 	{
-		method:  "GET",
-		id:      "getaccess",
-		path:    "/v0/keys/{keyID}/access/",
-		handler: getAccessHandler,
-		parameters: []parameter{
-			urlParameter("keyID"),
+		Method:  "GET",
+		Id:      "getaccess",
+		Path:    "/v0/keys/{keyID}/access/",
+		Handler: getAccessHandler,
+		Parameters: []Parameter{
+			UrlParameter("keyID"),
 		},
 	},
 	{
-		method:  "PUT",
-		id:      "putaccess",
-		path:    "/v0/keys/{keyID}/access/",
-		handler: putAccessHandler,
-		parameters: []parameter{
-			urlParameter("keyID"),
-			postParameter("access"),
-			postParameter("acl"),
+		Method:  "PUT",
+		Id:      "putaccess",
+		Path:    "/v0/keys/{keyID}/access/",
+		Handler: putAccessHandler,
+		Parameters: []Parameter{
+			UrlParameter("keyID"),
+			PostParameter("access"),
+			PostParameter("acl"),
 		},
 	},
 	{
-		method:  "POST",
-		id:      "postversion",
-		path:    "/v0/keys/{keyID}/versions/",
-		handler: postVersionHandler,
-		parameters: []parameter{
-			urlParameter("keyID"),
-			postParameter("data"),
+		Method:  "POST",
+		Id:      "postversion",
+		Path:    "/v0/keys/{keyID}/versions/",
+		Handler: postVersionHandler,
+		Parameters: []Parameter{
+			UrlParameter("keyID"),
+			PostParameter("data"),
 		},
 	},
 	{
-		method:  "PUT",
-		id:      "putversion",
-		path:    "/v0/keys/{keyID}/versions/{versionID}/",
-		handler: putVersionsHandler,
-		parameters: []parameter{
-			urlParameter("keyID"),
-			urlParameter("versionID"),
-			postParameter("status"),
+		Method:  "PUT",
+		Id:      "putversion",
+		Path:    "/v0/keys/{keyID}/versions/{versionID}/",
+		Handler: putVersionsHandler,
+		Parameters: []Parameter{
+			UrlParameter("keyID"),
+			UrlParameter("versionID"),
+			PostParameter("status"),
 		},
 	},
 }
@@ -104,7 +104,7 @@ var routes = [...]route{
 // REST so that fix will be postponed until this actually is a problem.
 // The route for this handler is GET /v0/keys/
 // There are no authorization constraints on this route.
-func getKeysHandler(m KeyManager, principal knox.Principal, parameters map[string]string) (interface{}, *httpError) {
+func getKeysHandler(m KeyManager, principal knox.Principal, parameters map[string]string) (interface{}, *HTTPError) {
 	queryString := parameters["queryString"]
 
 	// Can't throw error since direct from a http request
@@ -137,7 +137,7 @@ func getKeysHandler(m KeyManager, principal knox.Principal, parameters map[strin
 // It returns the key version ID of the original Primary key version.
 // The route for this handler is POST /v0/keys/
 // The postKeysHandler must be a User.
-func postKeysHandler(m KeyManager, principal knox.Principal, parameters map[string]string) (interface{}, *httpError) {
+func postKeysHandler(m KeyManager, principal knox.Principal, parameters map[string]string) (interface{}, *HTTPError) {
 
 	// Authorize
 	if !auth.IsUser(principal) {
@@ -151,6 +151,9 @@ func postKeysHandler(m KeyManager, principal knox.Principal, parameters map[stri
 	data, dataOK := parameters["data"]
 	if !dataOK {
 		return nil, errF(knox.NoKeyDataCode, "Missing parameter 'data'")
+	}
+	if data == "" {
+		return nil, errF(knox.NoKeyDataCode, "Parameter 'data' is empty")
 	}
 	aclStr, aclOK := parameters["acl"]
 
@@ -186,7 +189,7 @@ func postKeysHandler(m KeyManager, principal knox.Principal, parameters map[stri
 // getKeyHandler gets the key matching the keyID in the request.
 // The route for this handler is GET /v0/keys/<key_id>/
 // The principal must have Read access to the key
-func getKeyHandler(m KeyManager, principal knox.Principal, parameters map[string]string) (interface{}, *httpError) {
+func getKeyHandler(m KeyManager, principal knox.Principal, parameters map[string]string) (interface{}, *HTTPError) {
 	keyID := parameters["keyID"]
 
 	status := knox.Active
@@ -219,7 +222,7 @@ func getKeyHandler(m KeyManager, principal knox.Principal, parameters map[string
 // deleteKeyHandler deletes the key matching the keyID in the request.
 // The route for this handler is DELETE /v0/keys/<key_id>/
 // The principal needs Admin access to the key.
-func deleteKeyHandler(m KeyManager, principal knox.Principal, parameters map[string]string) (interface{}, *httpError) {
+func deleteKeyHandler(m KeyManager, principal knox.Principal, parameters map[string]string) (interface{}, *HTTPError) {
 	keyID := parameters["keyID"]
 
 	key, getErr := m.GetKey(keyID, knox.Primary)
@@ -245,7 +248,7 @@ func deleteKeyHandler(m KeyManager, principal knox.Principal, parameters map[str
 
 // getAccessHandler gets the ACL for a specific Key.
 // The route for this handler is GET /v0/keys/<key_id>/access/
-func getAccessHandler(m KeyManager, principal knox.Principal, parameters map[string]string) (interface{}, *httpError) {
+func getAccessHandler(m KeyManager, principal knox.Principal, parameters map[string]string) (interface{}, *HTTPError) {
 
 	keyID := parameters["keyID"]
 
@@ -270,7 +273,7 @@ func getAccessHandler(m KeyManager, principal knox.Principal, parameters map[str
 // existing access rules will not be modified unless the same Type and Name is used
 // The route for this handler is PUT /v0/keys/<key_id>/access/
 // The principal needs Admin access.
-func putAccessHandler(m KeyManager, principal knox.Principal, parameters map[string]string) (interface{}, *httpError) {
+func putAccessHandler(m KeyManager, principal knox.Principal, parameters map[string]string) (interface{}, *HTTPError) {
 	keyID := parameters["keyID"]
 
 	accessStr, accessOK := parameters["access"]
@@ -340,16 +343,22 @@ func putAccessHandler(m KeyManager, principal knox.Principal, parameters map[str
 // added as an Active key.
 // The route for this handler is PUT /v0/keys/<key_id>/versions/
 // The principal needs Write access.
-func postVersionHandler(m KeyManager, principal knox.Principal, parameters map[string]string) (interface{}, *httpError) {
+func postVersionHandler(m KeyManager, principal knox.Principal, parameters map[string]string) (interface{}, *HTTPError) {
 
 	keyID := parameters["keyID"]
 	dataStr, dataOK := parameters["data"]
 	if !dataOK {
 		return nil, errF(knox.BadRequestDataCode, "Missing parameter 'data'")
 	}
+	if dataStr == "" {
+		return nil, errF(knox.BadRequestDataCode, "Parameter 'data' is empty")
+	}
 	decodedData, decodeErr := base64.StdEncoding.DecodeString(dataStr)
 	if decodeErr != nil {
 		return nil, errF(knox.BadRequestDataCode, decodeErr.Error())
+	}
+	if decodedData == nil {
+		return nil, errF(knox.BadRequestDataCode, "Parameter 'data' decoded to nil")
 	}
 
 	// Get the key
@@ -386,7 +395,7 @@ func postVersionHandler(m KeyManager, principal knox.Principal, parameters map[s
 //   promote another key version to Primary to replace it.
 // The route for this handler is PUT /v0/keys/<key_id>/versions/<version_id>/
 // The principal needs Write access.
-func putVersionsHandler(m KeyManager, principal knox.Principal, parameters map[string]string) (interface{}, *httpError) {
+func putVersionsHandler(m KeyManager, principal knox.Principal, parameters map[string]string) (interface{}, *HTTPError) {
 
 	keyID := parameters["keyID"]
 	versionID := parameters["versionID"]

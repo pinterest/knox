@@ -31,9 +31,9 @@ See also: knox keys, knox get
 var getVersionsState = cmdGetVersions.Flag.String("s", "active", "")
 var verboseOutput = cmdGetVersions.Flag.Bool("v", false, "verbose")
 
-func runGetVersions(cmd *Command, args []string) {
+func runGetVersions(cmd *Command, args []string) *ErrorStatus {
 	if len(args) != 1 {
-		fatalf("get takes only one argument. See 'knox help versions'")
+		return &ErrorStatus{fmt.Errorf("get takes only one argument. See 'knox help versions'"), false}
 	}
 
 	var status knox.VersionStatus
@@ -49,7 +49,7 @@ func runGetVersions(cmd *Command, args []string) {
 	keyID := args[0]
 	key, err := cli.GetKeyWithStatus(keyID, status)
 	if err != nil {
-		fatalf("Error getting key: %s", err.Error())
+		return &ErrorStatus{fmt.Errorf("Error getting key: %s", err.Error()), true}
 	}
 	kvl := key.VersionList
 	for _, v := range kvl {
@@ -63,4 +63,5 @@ func runGetVersions(cmd *Command, args []string) {
 			fmt.Printf("%d\n", v.ID)
 		}
 	}
+	return nil
 }

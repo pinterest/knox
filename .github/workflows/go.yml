@@ -1,5 +1,7 @@
 name: Go
 
+permissions: read-all
+
 on:
   push:
     branches: [ master ]

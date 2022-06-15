@@ -25,16 +25,17 @@ See also: knox reactivate, knox promote
 	`,
 }
 
-func runDeactivate(cmd *Command, args []string) {
+func runDeactivate(cmd *Command, args []string) *ErrorStatus {
 	if len(args) != 2 {
-		fatalf("deactivate takes exactly two argument. See 'knox help deactivate'")
+		return &ErrorStatus{fmt.Errorf("deactivate takes exactly two argument. See 'knox help deactivate'"), false}
 	}
 	keyID := args[0]
 	keyVersion := args[1]
 
 	err := cli.UpdateVersion(keyID, keyVersion, knox.Inactive)
 	if err != nil {
-		fatalf("Error updating version: %s", err.Error())
+		return &ErrorStatus{fmt.Errorf("Error updating version: %s", err.Error()), true}
 	}
 	fmt.Printf("Deactivated %s successfully.\n", keyVersion)
+	return nil
 }

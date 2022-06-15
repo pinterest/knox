@@ -33,9 +33,9 @@ See also: knox create, knox promote
 }
 var addTinkKeyset = cmdAdd.Flag.String("key-template", "", "name of a knox-supported Tink key template")
 
-func runAdd(cmd *Command, args []string) {
+func runAdd(cmd *Command, args []string) *ErrorStatus {
 	if len(args) != 1 {
-		fatalf("add takes only one argument. See 'knox help add'")
+		return &ErrorStatus{fmt.Errorf("add takes only one argument. See 'knox help add'"), false}
 	}
 	keyID := args[0]
 	var data []byte
@@ -46,13 +46,14 @@ func runAdd(cmd *Command, args []string) {
 		data, err = readDataFromStdin()
 	}
 	if err != nil {
-		fatalf(err.Error())
+		return &ErrorStatus{err, false}
 	}
 	versionID, err := cli.AddVersion(keyID, data)
 	if err != nil {
-		fatalf("Error adding version: %s", err.Error())
+		return &ErrorStatus{fmt.Errorf("Error adding version: %s", err.Error()), true}
 	}
 	fmt.Printf("Added key version %d\n", versionID)
+	return nil
 }
 
 // getDataWithTemplate returns the data for a new version of a knox identifier that stores Tink keyset.

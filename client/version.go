@@ -21,6 +21,7 @@ func GetVersion() string {
 	return Version
 }
 
-func runVersion(cmd *Command, args []string) {
+func runVersion(cmd *Command, args []string) *ErrorStatus {
 	fmt.Printf("Knox CLI version %s\n", Version)
+	return nil
 }

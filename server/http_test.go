@@ -62,7 +62,11 @@ func setup() {
 		AddHeader("X-Content-Type-Options", "nosniff"),
 		Authentication([]auth.Provider{auth.MockGitHubProvider()}),
 	}
-	router = GetRouter(cryptor, db, decorators)
+	var err error
+	router, err = GetRouter(cryptor, db, decorators, make([]Route, 0))
+	if err != nil {
+		panic(err)
+	}
 }
 
 func getKeys(t *testing.T) []string {

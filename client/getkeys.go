@@ -11,7 +11,7 @@ var cmdGetKeys = &Command{
 	Long: `
 Get Keys takes version ids returns matching key ids if they exist.
 
-If no version ids, are given it returns all version ids.
+If no version ids are given, it returns all key ids.
 
 This requires valid user or machine authentication, but there are no authorization requirements.
 
@@ -21,16 +21,17 @@ See also: knox get, knox create, knox daemon
 	`,
 }
 
-func runGetKeys(cmd *Command, args []string) {
+func runGetKeys(cmd *Command, args []string) *ErrorStatus {
 	m := map[string]string{}
 	for _, s := range args {
 		m[s] = "NONE"
 	}
 	l, err := cli.GetKeys(m)
 	if err != nil {
-		fatalf("Error getting keys: %s", err.Error())
+		return &ErrorStatus{fmt.Errorf("Error getting keys: %s", err.Error()), true}
 	}
 	for _, k := range l {
 		fmt.Println(k)
 	}
+	return nil
 }

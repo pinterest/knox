@@ -48,12 +48,12 @@ var defaultDirPermission os.FileMode = 0777
 
 var daemonRefreshTime = 10 * time.Minute
 
-func runDaemon(cmd *Command, args []string) {
+func runDaemon(cmd *Command, args []string) *ErrorStatus {
 
 	if os.Getenv("KNOX_MACHINE_AUTH") == "" {
 		hostname, err := os.Hostname()
 		if err != nil {
-			fatalf("You're on a host with no name: %s", err.Error())
+			return &ErrorStatus{fmt.Errorf("You're on a host with no name: %s", err.Error()), false}
 		}
 		os.Setenv("KNOX_MACHINE_AUTH", hostname)
 	}
@@ -66,9 +66,10 @@ func runDaemon(cmd *Command, args []string) {
 	}
 	err := d.initialize()
 	if err != nil {
-		fatalf(err.Error())
+		return &ErrorStatus{err, false}
 	}
 	d.loop(daemonRefreshTime)
+	return nil
 }
 
 type daemon struct {
@@ -336,7 +337,7 @@ func (k *KeysFile) Lock() error {
 
 	// Annotate error with path to file to make debugging easier
 	if err != nil {
-		return fmt.Errorf("unable to obtain lock on file '%s': %w", k.fn, err)
+		return fmt.Errorf("unable to obtain lock on file '%s': %s", k.fn, err.Error())
 	}
 	return nil
 }
@@ -347,7 +348,7 @@ func (k *KeysFile) Unlock() error {
 
 	// Annotate error with path to file to make debugging easier
 	if err != nil {
-		return fmt.Errorf("unable to release lock on file '%s': %w", k.fn, err)
+		return fmt.Errorf("unable to release lock on file '%s': %s", k.fn, err.Error())
 	}
 	return nil
 }

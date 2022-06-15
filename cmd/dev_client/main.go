@@ -122,13 +122,16 @@ func main() {
 		Client:      &http.Client{Transport: &http.Transport{TLSClientConfig: tlsConfig}},
 	}
 
+	loginCommand := client.NewLoginCommand(clientID, tokenEndpoint, "", "", "", "")
+
 	client.Run(
 		cli,
 		&client.VisibilityParams{
-			Logf:    log.Printf,
-			Errorf:  log.Printf,
-			Metrics: func(map[string]uint64) {}},
-		tokenEndpoint,
-		clientID,
-		"")
+			Logf:           log.Printf,
+			Errorf:         log.Printf,
+			SummaryMetrics: func(map[string]uint64) {},
+			InvokeMetrics:  func(map[string]string) {},
+		},
+		loginCommand,
+	)
 }

@@ -23,22 +23,24 @@ See also: knox keys, knox get
 	`,
 }
 
-func runGetACL(cmd *Command, args []string) {
+func runGetACL(cmd *Command, args []string) *ErrorStatus {
 	if len(args) != 1 {
-		fatalf("acl takes only one argument. See 'knox help acl'")
+		return &ErrorStatus{fmt.Errorf("acl takes only one argument. See 'knox help acl'"), false}
 	}
 
 	keyID := args[0]
 	acl, err := cli.GetACL(keyID)
 	if err != nil {
-		fatalf("Error getting key ACL: %s", err.Error())
+		return &ErrorStatus{fmt.Errorf("Error getting key ACL: %s", err.Error()), true}
 	}
 
 	for _, a := range *acl {
 		aEnc, err := json.Marshal(a)
 		if err != nil {
-			fatalf("Could not marshal entry:", a)
+			// malformated ACL entry considered as knox server side error
+			return &ErrorStatus{fmt.Errorf("Could not marshal entry: %v", a), true}
 		}
 		fmt.Println(string(aEnc))
 	}
+	return nil
 }

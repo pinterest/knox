@@ -74,9 +74,11 @@ func runGet(cmd *Command, args []string) *ErrorStatus {
 	if *getTinkKeysetInfo {
 		tinkKeysetInfo, err := retrieveTinkKeysetInfo(keyID, *getNetwork)
 		if err != nil {
+			failureGetKeyMetric(keyID)
 			return err
 		}
 		fmt.Println(tinkKeysetInfo)
+		successGetKeyMetric(keyID)
 		return nil
 	}
 	if *getAll {

@@ -39,6 +39,20 @@ var getAll = cmdGet.Flag.Bool("a", false, "")
 var getTinkKeyset = cmdGet.Flag.Bool("tink-keyset", false, "get the stored tink keyset of the given knox identifier entirely")
 var getTinkKeysetInfo = cmdGet.Flag.Bool("tink-keyset-info", false, "get the metadata of the stored tink keyset of the given knox identifier")
 
+func successGetKeyMetric(keyID string) {
+	clientGetKeyMetrics(map[string]string{
+		"key_id":        keyID,
+		"access_result": "success",
+	})
+}
+
+func failureGetKeyMetric(keyID string) {
+	clientGetKeyMetrics(map[string]string{
+		"key_id":        keyID,
+		"access_result": "failure",
+	})
+}
+
 func runGet(cmd *Command, args []string) *ErrorStatus {
 	if len(args) != 1 {
 		return &ErrorStatus{fmt.Errorf("get takes only one argument. See 'knox help get'"), false}
@@ -50,9 +64,11 @@ func runGet(cmd *Command, args []string) *ErrorStatus {
 	if *getTinkKeyset {
 		tinkKeysetInBytes, err := retrieveTinkKeyset(keyID, *getNetwork)
 		if err != nil {
+			failureGetKeyMetric(keyID)
 			return err
 		}
 		fmt.Printf("%s", string(tinkKeysetInBytes))
+		successGetKeyMetric(keyID)
 		return nil
 	}
 	if *getTinkKeysetInfo {
@@ -79,26 +95,32 @@ func runGet(cmd *Command, args []string) *ErrorStatus {
 		}
 	}
 	if err != nil {
+		failureGetKeyMetric(keyID)
 		return &ErrorStatus{fmt.Errorf("Error getting key: %s", err.Error()), true}
 	}
 	if *getJSON {
 		data, err := json.Marshal(key)
 		if err != nil {
+			failureGetKeyMetric(keyID)
 			return &ErrorStatus{err, true}
 		}
 		fmt.Printf("%s", string(data))
+		successGetKeyMetric(keyID)
 		return nil
 	}
 	if *getVersion == "" {
 		fmt.Printf("%s", string(key.VersionList.GetPrimary().Data))
+		successGetKeyMetric(keyID)
 		return nil
 	}
 	for _, v := range key.VersionList {
 		if strconv.FormatUint(v.ID, 10) == *getVersion {
 			fmt.Printf("%s", string(v.Data))
+			successGetKeyMetric(keyID)
 			return nil
 		}
 	}
+	failureGetKeyMetric(keyID)
 	return &ErrorStatus{fmt.Errorf("%s", "Key version not found."), false}
 }
 

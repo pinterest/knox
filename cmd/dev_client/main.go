@@ -131,6 +131,7 @@ func main() {
 			Errorf:         log.Printf,
 			SummaryMetrics: func(map[string]uint64) {},
 			InvokeMetrics:  func(map[string]string) {},
+			GetKeyMetrics:  func(map[string]string) {},
 		},
 		loginCommand,
 	)

@@ -55,12 +55,14 @@ type VisibilityParams struct {
 	Errorf         func(string, ...interface{})
 	SummaryMetrics func(map[string]uint64)
 	InvokeMetrics  func(map[string]string)
+	GetKeyMetrics  func(map[string]string)
 }
 
 var logf = func(string, ...interface{}) {}
 var errorf = func(string, ...interface{}) {}
 var daemonReportMetrics = func(map[string]uint64) {}
 var clientInvokeMetrics = func(map[string]string) {}
+var clientGetKeyMetrics = func(map[string]string) {}
 
 // Run is how to execute commands. It uses global variables and isn't safe to call in parallel.
 func Run(
@@ -81,6 +83,9 @@ func Run(
 		}
 		if p.InvokeMetrics != nil {
 			clientInvokeMetrics = p.InvokeMetrics
+		}
+		if p.GetKeyMetrics != nil {
+			clientGetKeyMetrics = p.GetKeyMetrics
 		}
 		if loginCommand == nil {
 			fatalf("A login command was not supplied, you must supply a login command.")

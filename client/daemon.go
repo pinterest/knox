@@ -191,12 +191,12 @@ func (d *daemon) update() error {
 		existingKeys[keyID] = true
 
 		if _, present := keyMap[keyID]; present {
-			key, err := d.cli.CacheGetKey(keyID)
+			keyAccess, err := d.cli.CacheGetKey(keyID)
 			if err != nil {
 				// Keep going in spite of failure
 				logf("error getting cache key: %s", err)
 			} else {
-				keyMap[keyID] = key.VersionHash
+				keyMap[keyID] = keyAccess.Key.VersionHash
 			}
 		} else {
 			d.deleteKey(keyID)

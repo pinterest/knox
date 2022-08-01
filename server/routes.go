@@ -211,12 +211,14 @@ func getKeyHandler(m KeyManager, principal knox.Principal, parameters map[string
 	}
 
 	// Authorize access to data
-	if !principal.CanAccess(key.ACL, knox.Read) {
+	canAccess, accessPrincipal := principal.CanAccess(key.ACL, knox.Read)
+	if !canAccess {
 		return nil, errF(knox.UnauthorizedCode, fmt.Sprintf("Principal %s not authorized to read %s", principal.GetID(), keyID))
 	}
 	// Zero ACL for key response, in order to avoid caching unnecessarily
 	key.ACL = knox.ACL{}
-	return key, nil
+	keyAccess := knox.KeyAccess{Key: key, Principal: accessPrincipal}
+	return &keyAccess, nil
 }
 
 // deleteKeyHandler deletes the key matching the keyID in the request.
@@ -234,7 +236,8 @@ func deleteKeyHandler(m KeyManager, principal knox.Principal, parameters map[str
 	}
 
 	// Authorize
-	if !principal.CanAccess(key.ACL, knox.Admin) {
+	canAccess, _ := principal.CanAccess(key.ACL, knox.Admin)
+	if !canAccess {
 		return nil, errF(knox.UnauthorizedCode, fmt.Sprintf("Principal %s not authorized to delete %s", principal.GetID(), keyID))
 	}
 
@@ -314,7 +317,8 @@ func putAccessHandler(m KeyManager, principal knox.Principal, parameters map[str
 	}
 
 	// Authorize
-	if !principal.CanAccess(key.ACL, knox.Admin) {
+	canAccess, _ := principal.CanAccess(key.ACL, knox.Admin)
+	if !canAccess {
 		return nil, errF(knox.UnauthorizedCode, fmt.Sprintf("Principal %s not authorized to update access for %s", principal.GetID(), keyID))
 	}
 
@@ -371,7 +375,8 @@ func postVersionHandler(m KeyManager, principal knox.Principal, parameters map[s
 	}
 
 	// Authorize
-	if !principal.CanAccess(key.ACL, knox.Write) {
+	canAccess, _ := principal.CanAccess(key.ACL, knox.Write)
+	if !canAccess {
 		return nil, errF(knox.UnauthorizedCode, fmt.Sprintf("Principal %s not authorized to write %s", principal.GetID(), keyID))
 	}
 
@@ -424,7 +429,8 @@ func putVersionsHandler(m KeyManager, principal knox.Principal, parameters map[s
 	}
 
 	// Authorize
-	if !principal.CanAccess(key.ACL, knox.Write) {
+	canAccess, _ := principal.CanAccess(key.ACL, knox.Write)
+	if !canAccess {
 		return nil, errF(knox.UnauthorizedCode, fmt.Sprintf("Principal %s not authorized to write %s", principal.GetID(), keyID))
 	}
 

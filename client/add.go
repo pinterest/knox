@@ -67,5 +67,5 @@ func getDataWithTemplate(templateName string, keyID string) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("error getting key: %s", err.Error())
 	}
-	return addNewTinkKeyset(tinkKeyTemplates[templateName].templateFunc, allVersions.VersionList)
+	return addNewTinkKeyset(tinkKeyTemplates[templateName].templateFunc, allVersions.Key.VersionList)
 }

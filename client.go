@@ -155,7 +155,7 @@ func GetBackoffDuration(attempt int) time.Duration {
 
 // APIClient is an interface that talks to the knox server for key management.
 type APIClient interface {
-	GetKey(keyID string) (*Key, error)
+	GetKey(keyID string) (*KeyAccess, error)
 	CreateKey(keyID string, data []byte, acl ACL) (uint64, error)
 	GetKeys(keys map[string]string) ([]string, error)
 	DeleteKey(keyID string) error
@@ -163,11 +163,11 @@ type APIClient interface {
 	PutAccess(keyID string, acl ...Access) error
 	AddVersion(keyID string, data []byte) (uint64, error)
 	UpdateVersion(keyID, versionID string, status VersionStatus) error
-	CacheGetKey(keyID string) (*Key, error)
-	NetworkGetKey(keyID string) (*Key, error)
-	GetKeyWithStatus(keyID string, status VersionStatus) (*Key, error)
-	CacheGetKeyWithStatus(keyID string, status VersionStatus) (*Key, error)
-	NetworkGetKeyWithStatus(keyID string, status VersionStatus) (*Key, error)
+	CacheGetKey(keyID string) (*KeyAccess, error)
+	NetworkGetKey(keyID string) (*KeyAccess, error)
+	GetKeyWithStatus(keyID string, status VersionStatus) (*KeyAccess, error)
+	CacheGetKeyWithStatus(keyID string, status VersionStatus) (*KeyAccess, error)
+	NetworkGetKeyWithStatus(keyID string, status VersionStatus) (*KeyAccess, error)
 }
 
 type HTTP interface {
@@ -200,7 +200,7 @@ func NewClient(host string, client HTTP, authHandler func() string, keyFolder, v
 }
 
 // CacheGetKey gets the key from file system cache.
-func (c *HTTPClient) CacheGetKey(keyID string) (*Key, error) {
+func (c *HTTPClient) CacheGetKey(keyID string) (*KeyAccess, error) {
 	if c.KeyFolder == "" {
 		return nil, fmt.Errorf("No folder set for cached key.")
 	}
@@ -209,23 +209,24 @@ func (c *HTTPClient) CacheGetKey(keyID string) (*Key, error) {
 	if err != nil {
 		return nil, err
 	}
-	k := Key{Path: path}
+	k := KeyAccess{Key: &Key{Path: path}}
 	err = json.Unmarshal(b, &k)
 	if err != nil {
 		return nil, err
 	}
+
 	return &k, nil
 }
 
 // NetworkGetKey gets a knox key by keyID and only uses network without the caches.
-func (c *HTTPClient) NetworkGetKey(keyID string) (*Key, error) {
-	key := &Key{}
+func (c *HTTPClient) NetworkGetKey(keyID string) (*KeyAccess, error) {
+	key := &KeyAccess{}
 	err := c.getHTTPData("GET", "/v0/keys/"+keyID+"/", nil, key)
 	return key, err
 }
 
 // GetKey gets a knox key by keyID.
-func (c *HTTPClient) GetKey(keyID string) (*Key, error) {
+func (c *HTTPClient) GetKey(keyID string) (*KeyAccess, error) {
 	key, err := c.CacheGetKey(keyID)
 	if err != nil {
 		return c.NetworkGetKey(keyID)
@@ -234,7 +235,7 @@ func (c *HTTPClient) GetKey(keyID string) (*Key, error) {
 }
 
 // CacheGetKeyWithStatus gets the key with status from file system cache.
-func (c *HTTPClient) CacheGetKeyWithStatus(keyID string, status VersionStatus) (*Key, error) {
+func (c *HTTPClient) CacheGetKeyWithStatus(keyID string, status VersionStatus) (*KeyAccess, error) {
 	if c.KeyFolder == "" {
 		return nil, fmt.Errorf("No folder set for cached key.")
 	}
@@ -247,7 +248,7 @@ func (c *HTTPClient) CacheGetKeyWithStatus(keyID string, status VersionStatus) (
 	if err != nil {
 		return nil, err
 	}
-	k := Key{Path: path}
+	k := KeyAccess{Key: &Key{Path: path}}
 	err = json.Unmarshal(b, &k)
 	if err != nil {
 		return nil, err
@@ -256,20 +257,20 @@ func (c *HTTPClient) CacheGetKeyWithStatus(keyID string, status VersionStatus) (
 }
 
 // NetworkGetKeyWithStatus gets a knox key by keyID and given version status (always calls network).
-func (c *HTTPClient) NetworkGetKeyWithStatus(keyID string, status VersionStatus) (*Key, error) {
+func (c *HTTPClient) NetworkGetKeyWithStatus(keyID string, status VersionStatus) (*KeyAccess, error) {
 	// If clients need to know
 	s, err := status.MarshalJSON()
 	if err != nil {
 		return nil, err
 	}
 
-	key := &Key{}
+	key := &KeyAccess{}
 	err = c.getHTTPData("GET", "/v0/keys/"+keyID+"/?status="+string(s), nil, key)
 	return key, err
 }
 
 // GetKeyWithStatus gets a knox key by keyID and status (leverages cache).
-func (c *HTTPClient) GetKeyWithStatus(keyID string, status VersionStatus) (*Key, error) {
+func (c *HTTPClient) GetKeyWithStatus(keyID string, status VersionStatus) (*KeyAccess, error) {
 	key, err := c.CacheGetKeyWithStatus(keyID, status)
 	if err != nil {
 		return c.NetworkGetKeyWithStatus(keyID, status)

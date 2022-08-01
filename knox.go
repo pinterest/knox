@@ -383,6 +383,12 @@ type Key struct {
 	Path        string         `json:"path,omitempty"`
 }
 
+// KeyAccess represents a Key and the principal used to access the key.
+type KeyAccess struct {
+	Key       *Key   `json:"key"`
+	Principal string `json:"principal"`
+}
+
 // Validate calls makes sure all attributes of key are in good state.
 func (k Key) Validate() error {
 	// Check keyID characters
@@ -504,7 +510,7 @@ func (kvl KeyVersionList) Update(versionID uint64, s VersionStatus) (KeyVersionL
 // Principal is a person, machine, or process that accesses an object.
 // This interface is currently defined for people and machines.
 type Principal interface {
-	CanAccess(ACL, AccessType) bool
+	CanAccess(ACL, AccessType) (bool, string)
 	GetID() string
 	Type() string
 }
@@ -520,13 +526,14 @@ type PrincipalMux struct {
 
 // CanAccess will check the principals in order of adding, and the first
 // Principal that provides at least the AccessType requested will be used.
-func (p PrincipalMux) CanAccess(acl ACL, accessType AccessType) bool {
+func (p PrincipalMux) CanAccess(acl ACL, accessType AccessType) (bool, string) {
 	for _, p := range p.allPrincipals {
-		if p.CanAccess(acl, accessType) {
-			return true
+		canAccess, accessPrincipal := p.CanAccess(acl, accessType)
+		if canAccess {
+			return true, accessPrincipal
 		}
 	}
-	return false
+	return false, ""
 }
 
 // GetID returns the ID of the default principal.

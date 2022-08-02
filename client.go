@@ -5,6 +5,7 @@ import (
 	"crypto/tls"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -214,6 +215,10 @@ func (c *HTTPClient) CacheGetKey(keyID string) (*KeyAccess, error) {
 	if err != nil {
 		return nil, err
 	}
+	if k.Key.ID != keyID {
+		// if Key ID does not match requested ID incase of JSON format update
+		return nil, errors.New("failed to properly unmarshal cached key")
+	}
 
 	return &k, nil
 }
@@ -252,6 +257,10 @@ func (c *HTTPClient) CacheGetKeyWithStatus(keyID string, status VersionStatus) (
 	err = json.Unmarshal(b, &k)
 	if err != nil {
 		return nil, err
+	}
+	if k.Key.ID != keyID {
+		// if Key ID does not match requested ID incase of JSON format update
+		return nil, errors.New("failed to properly unmarshal cached key")
 	}
 	return &k, nil
 }

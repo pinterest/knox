@@ -83,11 +83,15 @@ func buildConcurrentServer(code int, t *testing.T, a func(r *http.Request) []byt
 }
 
 func TestGetKey(t *testing.T) {
-	expected := Key{
+	mockKey := Key{
 		ID:          "testkey",
 		ACL:         ACL([]Access{}),
 		VersionList: KeyVersionList{},
 		VersionHash: "VersionHash",
+	}
+	expected := KeyAccess{
+		Key:       &mockKey,
+		Principal: "testprincipal",
 	}
 	resp, err := buildGoodResponse(expected)
 	if err != nil {
@@ -105,24 +109,27 @@ func TestGetKey(t *testing.T) {
 
 	cli := MockClient(srv.Listener.Addr().String())
 
-	k, err := cli.GetKey("testkey")
+	kAccess, err := cli.GetKey("testkey")
 	if err != nil {
 		t.Fatalf("%s is not nil", err)
 	}
-	if k.ID != expected.ID {
-		t.Fatalf("%s does not equal %s", k.ID, expected.ID)
+	if kAccess.Key.ID != expected.Key.ID {
+		t.Fatalf("%s does not equal %s", kAccess.Key.ID, expected.Key.ID)
 	}
-	if len(k.ACL) != len(expected.ACL) {
-		t.Fatalf("%d does not equal %d", len(k.ACL), len(expected.ACL))
+	if len(kAccess.Key.ACL) != len(expected.Key.ACL) {
+		t.Fatalf("%d does not equal %d", len(kAccess.Key.ACL), len(expected.Key.ACL))
 	}
-	if len(k.VersionList) != len(expected.VersionList) {
-		t.Fatalf("%d does not equal %d", len(k.VersionList), len(expected.VersionList))
+	if len(kAccess.Key.VersionList) != len(expected.Key.VersionList) {
+		t.Fatalf("%d does not equal %d", len(kAccess.Key.VersionList), len(expected.Key.VersionList))
 	}
-	if k.VersionHash != expected.VersionHash {
-		t.Fatalf("%s does not equal %s", k.VersionHash, expected.VersionHash)
+	if kAccess.Key.VersionHash != expected.Key.VersionHash {
+		t.Fatalf("%s does not equal %s", kAccess.Key.VersionHash, expected.Key.VersionHash)
 	}
-	if k.Path != "" {
-		t.Fatalf("path '%v' is not empty", k.Path)
+	if kAccess.Key.Path != "" {
+		t.Fatalf("path '%v' is not empty", kAccess.Key.Path)
+	}
+	if kAccess.Principal != expected.Principal {
+		t.Fatalf("%s does not equal %s", kAccess.Principal, expected.Principal)
 	}
 }
 
@@ -400,11 +407,15 @@ func TestConcurrentDeletes(t *testing.T) {
 }
 
 func TestGetKeyWithStatus(t *testing.T) {
-	expected := Key{
+	mockKey := Key{
 		ID:          "testkey",
 		ACL:         ACL([]Access{}),
 		VersionList: KeyVersionList{},
 		VersionHash: "VersionHash",
+	}
+	expected := KeyAccess{
+		Key:       &mockKey,
+		Principal: "testprincipal",
 	}
 	resp, err := buildGoodResponse(expected)
 	if err != nil {
@@ -433,23 +444,26 @@ func TestGetKeyWithStatus(t *testing.T) {
 
 	cli := MockClient(srv.Listener.Addr().String())
 
-	k, err := cli.GetKeyWithStatus("testkey", Inactive)
+	kAccess, err := cli.GetKeyWithStatus("testkey", Inactive)
 	if err != nil {
 		t.Fatalf("%s is not nil", err)
 	}
-	if k.ID != expected.ID {
-		t.Fatalf("%s does not equal %s", k.ID, expected.ID)
+	if kAccess.Key.ID != expected.Key.ID {
+		t.Fatalf("%s does not equal %s", kAccess.Key.ID, expected.Key.ID)
 	}
-	if len(k.ACL) != len(expected.ACL) {
-		t.Fatalf("%d does not equal %d", len(k.ACL), len(expected.ACL))
+	if len(kAccess.Key.ACL) != len(expected.Key.ACL) {
+		t.Fatalf("%d does not equal %d", len(kAccess.Key.ACL), len(expected.Key.ACL))
 	}
-	if len(k.VersionList) != len(expected.VersionList) {
-		t.Fatalf("%d does not equal %d", len(k.VersionList), len(expected.VersionList))
+	if len(kAccess.Key.VersionList) != len(expected.Key.VersionList) {
+		t.Fatalf("%d does not equal %d", len(kAccess.Key.VersionList), len(expected.Key.VersionList))
 	}
-	if k.VersionHash != expected.VersionHash {
-		t.Fatalf("%s does not equal %s", k.VersionHash, expected.VersionHash)
+	if kAccess.Key.VersionHash != expected.Key.VersionHash {
+		t.Fatalf("%s does not equal %s", kAccess.Key.VersionHash, expected.Key.VersionHash)
 	}
-	if k.Path != "" {
-		t.Fatalf("path '%v' is not empty", k.Path)
+	if kAccess.Key.Path != "" {
+		t.Fatalf("path '%v' is not empty", kAccess.Key.Path)
+	}
+	if kAccess.Principal != expected.Principal {
+		t.Fatalf("%s does not equal %s", kAccess.Principal, expected.Principal)
 	}
 }

@@ -109,26 +109,30 @@ func TearDownTest(dir string) {
 func TestProcessKey(t *testing.T) {
 	params, dir, d := setUpTest(t)
 	defer TearDownTest(dir)
-	expected := knox.Key{
+	mockKey := knox.Key{
 		ID:          "testkey",
 		ACL:         knox.ACL([]knox.Access{}),
 		VersionList: knox.KeyVersionList{},
 		VersionHash: "VersionHash",
 	}
-	if err := addRegisteredKey(expected.ID, d.registerFilename()); err != nil {
+	expected := knox.KeyAccess{
+		Key:       &mockKey,
+		Principal: "testprincipal",
+	}
+	if err := addRegisteredKey(expected.Key.ID, d.registerFilename()); err != nil {
 		t.Fatal("Failed to register key: " + err.Error())
 	}
 	params.setFunc(func(r *http.Request) {
 		switch r.URL.Path {
 		case "/v0/keys/":
-			setGoodResponse(params, []string{expected.ID})
-		case "/v0/keys/" + expected.ID + "/":
+			setGoodResponse(params, []string{expected.Key.ID})
+		case "/v0/keys/" + expected.Key.ID + "/":
 			setGoodResponse(params, expected)
 		default:
 			t.Fatal("Unexpected path:" + r.URL.Path)
 		}
 	})
-	err := d.processKey(expected.ID)
+	err := d.processKey(expected.Key.ID)
 	if err != nil {
 		t.Fatalf("%s is not nil", err)
 	}
@@ -136,25 +140,28 @@ func TestProcessKey(t *testing.T) {
 		t.Fatalf("%d does not equal %d", d.getKeyErrCount, uint64(0))
 	}
 
-	ret, err := d.cli.CacheGetKey(expected.ID)
+	ret, err := d.cli.CacheGetKey(expected.Key.ID)
 	if err != nil {
 		t.Fatalf("%s is not nil", err)
 	}
-	if ret.ID != expected.ID {
-		t.Fatalf("%s does not equal %s", ret.ID, expected.ID)
+	if ret.Key.ID != expected.Key.ID {
+		t.Fatalf("%s does not equal %s", ret.Key.ID, expected.Key.ID)
 	}
-	if len(ret.ACL) != len(expected.ACL) {
-		t.Fatalf("%d does not equal %d", len(ret.ACL), len(expected.ACL))
+	if len(ret.Key.ACL) != len(expected.Key.ACL) {
+		t.Fatalf("%d does not equal %d", len(ret.Key.ACL), len(expected.Key.ACL))
 	}
-	if len(ret.VersionList) != len(expected.VersionList) {
-		t.Fatalf("%d does not equal %d", len(ret.VersionList), len(expected.VersionList))
+	if len(ret.Key.VersionList) != len(expected.Key.VersionList) {
+		t.Fatalf("%d does not equal %d", len(ret.Key.VersionList), len(expected.Key.VersionList))
 	}
-	if ret.VersionHash != expected.VersionHash {
-		t.Fatalf("%s does not equal %s", ret.VersionHash, expected.VersionHash)
+	if ret.Key.VersionHash != expected.Key.VersionHash {
+		t.Fatalf("%s does not equal %s", ret.Key.VersionHash, expected.Key.VersionHash)
+	}
+	if ret.Principal != expected.Principal {
+		t.Fatalf("%s does not equal %s", ret.Principal, expected.Principal)
 	}
 
-	expected.VersionHash = "VersionHash2"
-	err = d.processKey(expected.ID)
+	expected.Key.VersionHash = "VersionHash2"
+	err = d.processKey(expected.Key.ID)
 	if err != nil {
 		t.Fatalf("%s is not nil", err)
 	}
@@ -162,34 +169,38 @@ func TestProcessKey(t *testing.T) {
 		t.Fatalf("%d does not equal %d", d.getKeyErrCount, uint64(0))
 	}
 
-	ret, err = d.cli.CacheGetKey(expected.ID)
+	ret, err = d.cli.CacheGetKey(expected.Key.ID)
 	if err != nil {
 		t.Fatalf("%s is not nil", err)
 	}
-	if ret.ID != expected.ID {
-		t.Fatalf("%s does not equal %s", ret.ID, expected.ID)
+	if ret.Key.ID != expected.Key.ID {
+		t.Fatalf("%s does not equal %s", ret.Key.ID, expected.Key.ID)
 	}
-	if len(ret.ACL) != len(expected.ACL) {
-		t.Fatalf("%d does not equal %d", len(ret.ACL), len(expected.ACL))
+	if len(ret.Key.ACL) != len(expected.Key.ACL) {
+		t.Fatalf("%d does not equal %d", len(ret.Key.ACL), len(expected.Key.ACL))
 	}
-	if len(ret.VersionList) != len(expected.VersionList) {
-		t.Fatalf("%d does not equal %d", len(ret.VersionList), len(expected.VersionList))
+	if len(ret.Key.VersionList) != len(expected.Key.VersionList) {
+		t.Fatalf("%d does not equal %d", len(ret.Key.VersionList), len(expected.Key.VersionList))
 	}
-	if ret.VersionHash != expected.VersionHash {
-		t.Fatalf("%s does not equal %s", ret.VersionHash, expected.VersionHash)
+	if ret.Key.VersionHash != expected.Key.VersionHash {
+		t.Fatalf("%s does not equal %s", ret.Key.VersionHash, expected.Key.VersionHash)
 	}
 }
 
 func TestUpdate(t *testing.T) {
 	params, dir, d := setUpTest(t)
 	defer TearDownTest(dir)
-	expected := knox.Key{
+	mockKey := knox.Key{
 		ID:          "testkey",
 		ACL:         knox.ACL([]knox.Access{}),
 		VersionList: knox.KeyVersionList{},
 		VersionHash: "VersionHash",
 	}
-	if err := addRegisteredKey(expected.ID, d.registerFilename()); err != nil {
+	expected := knox.KeyAccess{
+		Key:       &mockKey,
+		Principal: "testprincipal",
+	}
+	if err := addRegisteredKey(expected.Key.ID, d.registerFilename()); err != nil {
 		t.Fatal("Failed to register key: " + err.Error())
 	}
 
@@ -208,18 +219,18 @@ func TestUpdate(t *testing.T) {
 	if len(keys) != 1 {
 		t.Fatalf("%d is not equal to 1", len(keys))
 	}
-	if keys[0] != expected.ID {
-		t.Fatalf("%s does not equal %s", keys[0], expected.ID)
+	if keys[0] != expected.Key.ID {
+		t.Fatalf("%s does not equal %s", keys[0], expected.Key.ID)
 	}
 
 	params.setFunc(func(r *http.Request) {
 		switch r.URL.Path {
 		case "/v0/keys/":
-			if r.URL.RawQuery != expected.ID+"=" {
-				t.Fatalf("%s does not equal %s", r.URL.RawQuery, expected.ID+"=")
+			if r.URL.RawQuery != expected.Key.ID+"=" {
+				t.Fatalf("%s does not equal %s", r.URL.RawQuery, expected.Key.ID+"=")
 			}
-			setGoodResponse(params, []string{expected.ID})
-		case "/v0/keys/" + expected.ID + "/":
+			setGoodResponse(params, []string{expected.Key.ID})
+		case "/v0/keys/" + expected.Key.ID + "/":
 			setGoodResponse(params, expected)
 		default:
 			t.Fatal("Unexpected path:" + r.URL.Path)
@@ -233,21 +244,24 @@ func TestUpdate(t *testing.T) {
 		t.Fatalf("%d does not equal %d", d.getKeyErrCount, uint64(0))
 	}
 
-	ret, err := d.cli.CacheGetKey(expected.ID)
+	ret, err := d.cli.CacheGetKey(expected.Key.ID)
 	if err != nil {
 		t.Fatalf("%s is not nil", err)
 	}
-	if ret.ID != expected.ID {
-		t.Fatalf("%s does not equal %s", ret.ID, expected.ID)
+	if ret.Key.ID != expected.Key.ID {
+		t.Fatalf("%s does not equal %s", ret.Key.ID, expected.Key.ID)
 	}
-	if len(ret.ACL) != len(expected.ACL) {
-		t.Fatalf("%d does not equal %d", len(ret.ACL), len(expected.ACL))
+	if len(ret.Key.ACL) != len(expected.Key.ACL) {
+		t.Fatalf("%d does not equal %d", len(ret.Key.ACL), len(expected.Key.ACL))
 	}
-	if len(ret.VersionList) != len(expected.VersionList) {
-		t.Fatalf("%d does not equal %d", len(ret.VersionList), len(expected.VersionList))
+	if len(ret.Key.VersionList) != len(expected.Key.VersionList) {
+		t.Fatalf("%d does not equal %d", len(ret.Key.VersionList), len(expected.Key.VersionList))
 	}
-	if ret.VersionHash != expected.VersionHash {
-		t.Fatalf("%s does not equal %s", ret.VersionHash, expected.VersionHash)
+	if ret.Key.VersionHash != expected.Key.VersionHash {
+		t.Fatalf("%s does not equal %s", ret.Key.VersionHash, expected.Key.VersionHash)
+	}
+	if ret.Principal != expected.Principal {
+		t.Fatalf("%s does not equal %s", ret.Principal, expected.Principal)
 	}
 
 	keys, err = d.currentRegisteredKeys()
@@ -257,19 +271,19 @@ func TestUpdate(t *testing.T) {
 	if len(keys) != 1 {
 		t.Fatalf("%d is not equal to 1", len(keys))
 	}
-	if keys[0] != expected.ID {
-		t.Fatalf("%s does not equal %s", keys[0], expected.ID)
+	if keys[0] != expected.Key.ID {
+		t.Fatalf("%s does not equal %s", keys[0], expected.Key.ID)
 	}
 
 	// Do the same thing again to assert there were no changes
 	params.setFunc(func(r *http.Request) {
 		switch r.URL.Path {
 		case "/v0/keys/":
-			if r.URL.RawQuery != expected.ID+"="+expected.VersionHash {
-				t.Fatalf("%s does not equal %s", r.URL.RawQuery, expected.ID+"="+expected.VersionHash)
+			if r.URL.RawQuery != expected.Key.ID+"="+expected.Key.VersionHash {
+				t.Fatalf("%s does not equal %s", r.URL.RawQuery, expected.Key.ID+"="+expected.Key.VersionHash)
 			}
 			setGoodResponse(params, []string{})
-		case "/v0/keys/" + expected.ID + "/":
+		case "/v0/keys/" + expected.Key.ID + "/":
 			t.Fatalf("Should not call for a key again")
 		default:
 			t.Fatal("Unexpected path:" + r.URL.Path)
@@ -283,38 +297,45 @@ func TestUpdate(t *testing.T) {
 		t.Fatalf("%d does not equal %d", d.getKeyErrCount, uint64(0))
 	}
 
-	ret, err = d.cli.CacheGetKey(expected.ID)
+	ret, err = d.cli.CacheGetKey(expected.Key.ID)
 	if err != nil {
 		t.Fatalf("%s is not nil", err)
 	}
-	if ret.ID != expected.ID {
-		t.Fatalf("%s does not equal %s", ret.ID, expected.ID)
+	if ret.Key.ID != expected.Key.ID {
+		t.Fatalf("%s does not equal %s", ret.Key.ID, expected.Key.ID)
 	}
-	if len(ret.ACL) != len(expected.ACL) {
-		t.Fatalf("%d does not equal %d", len(ret.ACL), len(expected.ACL))
+	if len(ret.Key.ACL) != len(expected.Key.ACL) {
+		t.Fatalf("%d does not equal %d", len(ret.Key.ACL), len(expected.Key.ACL))
 	}
-	if len(ret.VersionList) != len(expected.VersionList) {
-		t.Fatalf("%d does not equal %d", len(ret.VersionList), len(expected.VersionList))
+	if len(ret.Key.VersionList) != len(expected.Key.VersionList) {
+		t.Fatalf("%d does not equal %d", len(ret.Key.VersionList), len(expected.Key.VersionList))
 	}
-	if ret.VersionHash != expected.VersionHash {
-		t.Fatalf("%s does not equal %s", ret.VersionHash, expected.VersionHash)
+	if ret.Key.VersionHash != expected.Key.VersionHash {
+		t.Fatalf("%s does not equal %s", ret.Key.VersionHash, expected.Key.VersionHash)
+	}
+	if ret.Principal != expected.Principal {
+		t.Fatalf("%s does not equal %s", ret.Principal, expected.Principal)
 	}
 
 	// Check what happens on an update
-	newExpected := knox.Key{
+	newExpectedMockKey := knox.Key{
 		ID:          "testkey",
 		ACL:         knox.ACL([]knox.Access{}),
 		VersionList: knox.KeyVersionList{},
 		VersionHash: "VersionHash2",
 	}
+	newExpected := knox.KeyAccess{
+		Key:       &newExpectedMockKey,
+		Principal: "testprincipal",
+	}
 	params.setFunc(func(r *http.Request) {
 		switch r.URL.Path {
 		case "/v0/keys/":
-			if r.URL.RawQuery != expected.ID+"="+expected.VersionHash {
-				t.Fatalf("%s does not equal %s", r.URL.RawQuery, expected.ID+"="+expected.VersionHash)
+			if r.URL.RawQuery != expected.Key.ID+"="+expected.Key.VersionHash {
+				t.Fatalf("%s does not equal %s", r.URL.RawQuery, expected.Key.ID+"="+expected.Key.VersionHash)
 			}
-			setGoodResponse(params, []string{expected.ID})
-		case "/v0/keys/" + expected.ID + "/":
+			setGoodResponse(params, []string{expected.Key.ID})
+		case "/v0/keys/" + expected.Key.ID + "/":
 			setGoodResponse(params, newExpected)
 		default:
 			t.Fatal("Unexpected path:" + r.URL.Path)
@@ -328,21 +349,24 @@ func TestUpdate(t *testing.T) {
 		t.Fatalf("%d does not equal %d", d.getKeyErrCount, uint64(0))
 	}
 
-	ret, err = d.cli.CacheGetKey(expected.ID)
+	ret, err = d.cli.CacheGetKey(expected.Key.ID)
 	if err != nil {
 		t.Fatalf("%s is not nil", err)
 	}
-	if ret.ID != newExpected.ID {
-		t.Fatalf("%s does not equal %s", ret.ID, newExpected.ID)
+	if ret.Key.ID != newExpected.Key.ID {
+		t.Fatalf("%s does not equal %s", ret.Key.ID, newExpected.Key.ID)
 	}
-	if len(ret.ACL) != len(newExpected.ACL) {
-		t.Fatalf("%d does not equal %d", len(ret.ACL), len(newExpected.ACL))
+	if len(ret.Key.ACL) != len(newExpected.Key.ACL) {
+		t.Fatalf("%d does not equal %d", len(ret.Key.ACL), len(newExpected.Key.ACL))
 	}
-	if len(ret.VersionList) != len(newExpected.VersionList) {
-		t.Fatalf("%d does not equal %d", len(ret.VersionList), len(newExpected.VersionList))
+	if len(ret.Key.VersionList) != len(newExpected.Key.VersionList) {
+		t.Fatalf("%d does not equal %d", len(ret.Key.VersionList), len(newExpected.Key.VersionList))
 	}
-	if ret.VersionHash != newExpected.VersionHash {
-		t.Fatalf("%s does not equal %s", ret.VersionHash, newExpected.VersionHash)
+	if ret.Key.VersionHash != newExpected.Key.VersionHash {
+		t.Fatalf("%s does not equal %s", ret.Key.VersionHash, newExpected.Key.VersionHash)
+	}
+	if ret.Principal != newExpected.Principal {
+		t.Fatalf("%s does not equal %s", ret.Principal, newExpected.Principal)
 	}
 
 	keys, err = d.currentRegisteredKeys()
@@ -352,8 +376,8 @@ func TestUpdate(t *testing.T) {
 	if len(keys) != 1 {
 		t.Fatalf("%d is not equal to 1", len(keys))
 	}
-	if keys[0] != expected.ID {
-		t.Fatalf("%s does not equal %s", keys[0], expected.ID)
+	if keys[0] != expected.Key.ID {
+		t.Fatalf("%s does not equal %s", keys[0], expected.Key.ID)
 	}
 }
 

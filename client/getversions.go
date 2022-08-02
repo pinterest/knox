@@ -47,11 +47,11 @@ func runGetVersions(cmd *Command, args []string) *ErrorStatus {
 	}
 
 	keyID := args[0]
-	key, err := cli.GetKeyWithStatus(keyID, status)
+	keyAccess, err := cli.GetKeyWithStatus(keyID, status)
 	if err != nil {
 		return &ErrorStatus{fmt.Errorf("Error getting key: %s", err.Error()), true}
 	}
-	kvl := key.VersionList
+	kvl := keyAccess.Key.VersionList
 	for _, v := range kvl {
 		status, err := json.Marshal(v.Status)
 		if err != nil {

@@ -100,7 +100,6 @@ func AddKeyOnly(addKeyOnlyCondition func(string) bool) func(http.HandlerFunc) ht
 				currParams := GetParams(r)
 				currParams["keyOnly"] = ""
 				setParams(r, currParams)
-				fmt.Println(GetParams(r))
 			}
 
 			f(w, r)

@@ -41,6 +41,7 @@ var routes = [...]Route{
 		Parameters: []Parameter{
 			UrlParameter("keyID"),
 			QueryParameter("status"),
+			QueryParameter("keyOnly"),
 		},
 	},
 	{
@@ -217,6 +218,13 @@ func getKeyHandler(m KeyManager, principal knox.Principal, parameters map[string
 	}
 	// Zero ACL for key response, in order to avoid caching unnecessarily
 	key.ACL = knox.ACL{}
+
+	// If the keyOnly parameter is set then
+	_, keyOnlyOK := parameters["keyOnly"]
+	if keyOnlyOK {
+		return &key, nil
+	}
+
 	keyAccess := knox.KeyAccess{Key: key, Principal: accessPrincipal}
 	return &keyAccess, nil
 }

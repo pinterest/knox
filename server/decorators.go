@@ -90,6 +90,24 @@ func AddHeader(k, v string) func(http.HandlerFunc) http.HandlerFunc {
 	}
 }
 
+// AddKeyOnly adds keyOnly parameter based on parsing userAgent
+func AddKeyOnly(addKeyOnlyCondition func(string) bool) func(http.HandlerFunc) http.HandlerFunc {
+	return func(f http.HandlerFunc) http.HandlerFunc {
+		return func(w http.ResponseWriter, r *http.Request) {
+			agent := r.Header.Get("User-Agent")
+
+			if addKeyOnlyCondition(agent) {
+				currParams := GetParams(r)
+				currParams["keyOnly"] = ""
+				setParams(r, currParams)
+				fmt.Println(GetParams(r))
+			}
+
+			f(w, r)
+		}
+	}
+}
+
 // Logger logs the request and response information in json format to the logger given.
 func Logger(logger *log.Logger) func(http.HandlerFunc) http.HandlerFunc {
 	return func(f http.HandlerFunc) http.HandlerFunc {

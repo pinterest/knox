@@ -227,6 +227,25 @@ func TestGetKey(t *testing.T) {
 		}
 	}
 
+	i, err = getKeyHandler(m, u, map[string]string{"keyID": "a1", "keyOnly": ""})
+	switch k := i.(type) {
+	default:
+		t.Fatal("Unexpected type of response")
+	case *knox.Key:
+		if k.ID != "a1" {
+			t.Fatalf("Expected ID to be a1 not %s", k.ID)
+		}
+		if len(k.ACL) != 0 {
+			t.Fatalf("Expected key acl to be empty")
+		}
+		if len(k.VersionList) != 1 {
+			t.Fatalf("Expected len to be 1 not %d", len(k.VersionList))
+		}
+		if string(k.VersionList[0].Data) != "1" {
+			t.Fatalf("Expected ID to be a1 not %s", string(k.VersionList[0].Data))
+		}
+	}
+
 	i, err = getKeyHandler(m, u, map[string]string{"keyID": "a1", "status": "AJSDFLKJlks"})
 	if err == nil {
 		t.Fatal("Expected err")

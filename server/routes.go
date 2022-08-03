@@ -222,7 +222,7 @@ func getKeyHandler(m KeyManager, principal knox.Principal, parameters map[string
 	// If the keyOnly parameter is set then
 	_, keyOnlyOK := parameters["keyOnly"]
 	if keyOnlyOK {
-		return &key, nil
+		return key, nil
 	}
 
 	keyAccess := knox.KeyAccess{Key: key, Principal: accessPrincipal}

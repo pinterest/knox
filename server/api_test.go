@@ -91,12 +91,10 @@ func TestAddDefaultAccess(t *testing.T) {
 	data := []byte("testdata")
 	u := auth.NewUser(uid, []string{})
 	key := newKey(id, acl, data, u)
-	canAccess, _ := u.CanAccess(key.ACL, knox.Admin)
-	if !canAccess {
+	if !u.CanAccess(key.ACL, knox.Admin) {
 		t.Fatal("creator does not have access to his key")
 	}
-	canAccess, _ = u2.CanAccess(key.ACL, knox.Read)
-	if !canAccess {
+	if !u2.CanAccess(key.ACL, knox.Read) {
 		t.Fatal("default access does not have access to his key")
 	}
 	if len(key.ACL) != 2 {
@@ -217,8 +215,7 @@ func TestNewKey(t *testing.T) {
 	if len(key.VersionList) != 1 || !bytes.Equal(key.VersionList[0].Data, data) {
 		t.Fatal("data does not match: " + string(key.VersionList[0].Data) + "!=" + string(data))
 	}
-	canAccess, _ := u.CanAccess(key.ACL, knox.Admin)
-	if !canAccess {
+	if !u.CanAccess(key.ACL, knox.Admin) {
 		t.Fatal("creator does not have access to his key")
 	}
 	if len(key.ACL) != len(defaultAccess)+2 {

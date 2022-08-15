@@ -100,9 +100,9 @@ func addKey(t *testing.T, id string, data []byte) uint64 {
 	return keyID
 }
 
-func getKey(t *testing.T, id string) knox.KeyAccess {
+func getKey(t *testing.T, id string) knox.Key {
 	path := "/v0/keys/" + id + "/"
-	var key knox.KeyAccess
+	var key knox.Key
 	message, err := getHTTPData("GET", path, nil, &key)
 	if err != nil {
 		t.Fatal(err.Error())
@@ -229,11 +229,11 @@ func TestAddKeys(t *testing.T) {
 	if keysAfter == nil || len(keysAfter) != 1 || keysAfter[0] != "testkey" {
 		t.Fatal("Expected empty array")
 	}
-	keyAccess := getKey(t, expKeyID)
-	if keyAccess.Key.VersionList[0].ID != keyID {
+	key := getKey(t, expKeyID)
+	if key.VersionList[0].ID != keyID {
 		t.Fatal("Key ID's do not match")
 	}
-	if !bytes.Equal(keyAccess.Key.VersionList[0].Data, data) {
+	if !bytes.Equal(key.VersionList[0].Data, data) {
 		t.Fatal("Data is not consistant")
 	}
 }
@@ -255,11 +255,11 @@ func TestConcurrentAddKeys(t *testing.T) {
 			t.Error("Expected keyID back")
 		}
 		getKeys(t)
-		keyAccess := getKey(t, "testkey")
-		if keyAccess.Key.VersionList[0].ID != keyID {
+		key := getKey(t, "testkey")
+		if key.VersionList[0].ID != keyID {
 			t.Error("Key ID's do not match")
 		}
-		if !bytes.Equal(keyAccess.Key.VersionList[0].Data, data) {
+		if !bytes.Equal(key.VersionList[0].Data, data) {
 			t.Error("Data is not consistant")
 		}
 	}()
@@ -298,25 +298,25 @@ func TestKeyRotation(t *testing.T) {
 	if keyVersionID == 0 {
 		t.Fatal("Expected keyID back")
 	}
-	keyAccess := getKey(t, keyID)
-	if len(keyAccess.Key.VersionList) != 1 || keyAccess.Key.VersionList[0].ID != keyVersionID {
+	key := getKey(t, keyID)
+	if len(key.VersionList) != 1 || key.VersionList[0].ID != keyVersionID {
 		t.Fatal("Key ID's do not match")
 	}
-	if keyAccess.Key.VersionList[0].Status != knox.Primary {
+	if key.VersionList[0].Status != knox.Primary {
 		t.Fatal("Unexpected initial version")
 	}
 	keyVersionID2 := postVersion(t, keyID, data2)
 	if keyVersionID2 == 0 {
 		t.Fatal("Expected keyID back")
 	}
-	keyAccess2 := getKey(t, keyID)
-	if len(keyAccess2.Key.VersionList) != 2 {
+	key2 := getKey(t, keyID)
+	if len(key2.VersionList) != 2 {
 		t.Fatal("Key version list not long enough")
 	}
-	if keyAccess2.Key.VersionHash == keyAccess.Key.VersionHash {
+	if key2.VersionHash == key.VersionHash {
 		t.Fatal("Hashes are equivalent")
 	}
-	for _, k := range keyAccess2.Key.VersionList {
+	for _, k := range key2.VersionList {
 		switch k.ID {
 		case keyVersionID:
 			if k.Status != knox.Primary {
@@ -331,14 +331,14 @@ func TestKeyRotation(t *testing.T) {
 		}
 	}
 	putVersion(t, keyID, keyVersionID2, knox.Primary)
-	keyAccess3 := getKey(t, keyID)
-	if len(keyAccess3.Key.VersionList) != 2 {
+	key3 := getKey(t, keyID)
+	if len(key3.VersionList) != 2 {
 		t.Fatal("Key version list not long enough")
 	}
-	if keyAccess2.Key.VersionHash == keyAccess3.Key.VersionHash || keyAccess3.Key.VersionHash == keyAccess.Key.VersionHash {
+	if key2.VersionHash == key3.VersionHash || key3.VersionHash == key.VersionHash {
 		t.Fatal("Hashes are equivalent")
 	}
-	for _, k := range keyAccess3.Key.VersionList {
+	for _, k := range key3.VersionList {
 		switch k.ID {
 		case keyVersionID:
 			if k.Status != knox.Active {
@@ -353,14 +353,14 @@ func TestKeyRotation(t *testing.T) {
 		}
 	}
 	putVersion(t, keyID, keyVersionID, knox.Inactive)
-	keyAccess4 := getKey(t, keyID)
-	if len(keyAccess4.Key.VersionList) != 1 {
+	key4 := getKey(t, keyID)
+	if len(key4.VersionList) != 1 {
 		t.Fatal("Key version list not long enough")
 	}
-	if keyAccess2.Key.VersionHash == keyAccess4.Key.VersionHash || keyAccess3.Key.VersionHash == keyAccess4.Key.VersionHash {
+	if key2.VersionHash == key4.VersionHash || key3.VersionHash == key4.VersionHash {
 		t.Fatal("Hashes are equivalent")
 	}
-	if keyAccess4.Key.VersionList[0].ID != keyVersionID2 || keyAccess4.Key.VersionList[0].Status != knox.Primary {
+	if key4.VersionList[0].ID != keyVersionID2 || key4.VersionList[0].Status != knox.Primary {
 		t.Fatal("Unexpected Version or status in VersionList")
 	}
 }

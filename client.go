@@ -5,7 +5,6 @@ import (
 	"crypto/tls"
 	"encoding/base64"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -156,7 +155,7 @@ func GetBackoffDuration(attempt int) time.Duration {
 
 // APIClient is an interface that talks to the knox server for key management.
 type APIClient interface {
-	GetKey(keyID string) (*KeyAccess, error)
+	GetKey(keyID string) (*Key, error)
 	CreateKey(keyID string, data []byte, acl ACL) (uint64, error)
 	GetKeys(keys map[string]string) ([]string, error)
 	DeleteKey(keyID string) error
@@ -164,11 +163,11 @@ type APIClient interface {
 	PutAccess(keyID string, acl ...Access) error
 	AddVersion(keyID string, data []byte) (uint64, error)
 	UpdateVersion(keyID, versionID string, status VersionStatus) error
-	CacheGetKey(keyID string) (*KeyAccess, error)
-	NetworkGetKey(keyID string) (*KeyAccess, error)
-	GetKeyWithStatus(keyID string, status VersionStatus) (*KeyAccess, error)
-	CacheGetKeyWithStatus(keyID string, status VersionStatus) (*KeyAccess, error)
-	NetworkGetKeyWithStatus(keyID string, status VersionStatus) (*KeyAccess, error)
+	CacheGetKey(keyID string) (*Key, error)
+	NetworkGetKey(keyID string) (*Key, error)
+	GetKeyWithStatus(keyID string, status VersionStatus) (*Key, error)
+	CacheGetKeyWithStatus(keyID string, status VersionStatus) (*Key, error)
+	NetworkGetKeyWithStatus(keyID string, status VersionStatus) (*Key, error)
 }
 
 type HTTP interface {
@@ -201,7 +200,7 @@ func NewClient(host string, client HTTP, authHandler func() string, keyFolder, v
 }
 
 // CacheGetKey gets the key from file system cache.
-func (c *HTTPClient) CacheGetKey(keyID string) (*KeyAccess, error) {
+func (c *HTTPClient) CacheGetKey(keyID string) (*Key, error) {
 	if c.KeyFolder == "" {
 		return nil, fmt.Errorf("No folder set for cached key.")
 	}
@@ -210,28 +209,23 @@ func (c *HTTPClient) CacheGetKey(keyID string) (*KeyAccess, error) {
 	if err != nil {
 		return nil, err
 	}
-	k := KeyAccess{Key: &Key{Path: path}}
+	k := Key{Path: path}
 	err = json.Unmarshal(b, &k)
 	if err != nil {
 		return nil, err
 	}
-	if k.Key.ID != keyID {
-		// if Key ID does not match requested ID incase of JSON format update
-		return nil, errors.New("failed to properly unmarshal cached key")
-	}
-
 	return &k, nil
 }
 
 // NetworkGetKey gets a knox key by keyID and only uses network without the caches.
-func (c *HTTPClient) NetworkGetKey(keyID string) (*KeyAccess, error) {
-	key := &KeyAccess{}
+func (c *HTTPClient) NetworkGetKey(keyID string) (*Key, error) {
+	key := &Key{}
 	err := c.getHTTPData("GET", "/v0/keys/"+keyID+"/", nil, key)
 	return key, err
 }
 
 // GetKey gets a knox key by keyID.
-func (c *HTTPClient) GetKey(keyID string) (*KeyAccess, error) {
+func (c *HTTPClient) GetKey(keyID string) (*Key, error) {
 	key, err := c.CacheGetKey(keyID)
 	if err != nil {
 		return c.NetworkGetKey(keyID)
@@ -240,7 +234,7 @@ func (c *HTTPClient) GetKey(keyID string) (*KeyAccess, error) {
 }
 
 // CacheGetKeyWithStatus gets the key with status from file system cache.
-func (c *HTTPClient) CacheGetKeyWithStatus(keyID string, status VersionStatus) (*KeyAccess, error) {
+func (c *HTTPClient) CacheGetKeyWithStatus(keyID string, status VersionStatus) (*Key, error) {
 	if c.KeyFolder == "" {
 		return nil, fmt.Errorf("No folder set for cached key.")
 	}
@@ -253,33 +247,29 @@ func (c *HTTPClient) CacheGetKeyWithStatus(keyID string, status VersionStatus) (
 	if err != nil {
 		return nil, err
 	}
-	k := KeyAccess{Key: &Key{Path: path}}
+	k := Key{Path: path}
 	err = json.Unmarshal(b, &k)
 	if err != nil {
 		return nil, err
-	}
-	if k.Key.ID != keyID {
-		// if Key ID does not match requested ID incase of JSON format update
-		return nil, errors.New("failed to properly unmarshal cached key")
 	}
 	return &k, nil
 }
 
 // NetworkGetKeyWithStatus gets a knox key by keyID and given version status (always calls network).
-func (c *HTTPClient) NetworkGetKeyWithStatus(keyID string, status VersionStatus) (*KeyAccess, error) {
+func (c *HTTPClient) NetworkGetKeyWithStatus(keyID string, status VersionStatus) (*Key, error) {
 	// If clients need to know
 	s, err := status.MarshalJSON()
 	if err != nil {
 		return nil, err
 	}
 
-	key := &KeyAccess{}
+	key := &Key{}
 	err = c.getHTTPData("GET", "/v0/keys/"+keyID+"/?status="+string(s), nil, key)
 	return key, err
 }
 
 // GetKeyWithStatus gets a knox key by keyID and status (leverages cache).
-func (c *HTTPClient) GetKeyWithStatus(keyID string, status VersionStatus) (*KeyAccess, error) {
+func (c *HTTPClient) GetKeyWithStatus(keyID string, status VersionStatus) (*Key, error) {
 	key, err := c.CacheGetKeyWithStatus(keyID, status)
 	if err != nil {
 		return c.NetworkGetKeyWithStatus(keyID, status)

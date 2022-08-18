@@ -20,36 +20,30 @@ func TestUserCanAccess(t *testing.T) {
 	a3 := knox.Access{ID: "returntrue", AccessType: knox.Admin, Type: knox.UserGroup}
 
 	acl1 := knox.ACL([]knox.Access{a1})
-	canAccess, _ := u.CanAccess(acl1, knox.Write)
-	if !canAccess {
+	if !u.CanAccess(acl1, knox.Write) {
 		t.Error("user can't access user permission matching id")
 	}
-	canAccess, _ = u.CanAccess(acl1, knox.Admin)
-	if canAccess {
+	if u.CanAccess(acl1, knox.Admin) {
 		t.Error("user can access user permission with increased access type")
 	}
 
 	acl2 := knox.ACL([]knox.Access{a2})
-	canAccess, _ = u.CanAccess(acl2, knox.Write)
-	if canAccess {
+	if u.CanAccess(acl2, knox.Write) {
 		t.Error("user can access group they are not in")
 	}
 
 	acl3 := knox.ACL([]knox.Access{a3})
-	canAccess, _ = u.CanAccess(acl3, knox.Read)
-	if !canAccess {
+	if !u.CanAccess(acl3, knox.Read) {
 		t.Error("user can't access group they are in")
 	}
 
 	acl4 := knox.ACL([]knox.Access{a2, a3, a1})
-	canAccess, _ = u.CanAccess(acl4, knox.Admin)
-	if !canAccess {
+	if !u.CanAccess(acl4, knox.Admin) {
 		t.Error("user can't access group they are in with multiple members")
 	}
 
 	acl5 := knox.ACL([]knox.Access{})
-	canAccess, _ = u.CanAccess(acl5, knox.Admin)
-	if canAccess {
+	if u.CanAccess(acl5, knox.Admin) {
 		t.Error("user can access empty ACL")
 	}
 }
@@ -60,36 +54,30 @@ func TestMachineCanAccess(t *testing.T) {
 	a3 := knox.Access{ID: "test", AccessType: knox.Admin, Type: knox.MachinePrefix}
 
 	acl1 := knox.ACL([]knox.Access{a1})
-	canAccess, _ := u.CanAccess(acl1, knox.Write)
-	if !canAccess {
+	if !u.CanAccess(acl1, knox.Write) {
 		t.Error("machine can't access user permission matching id")
 	}
-	canAccess, _ = u.CanAccess(acl1, knox.Admin)
-	if canAccess {
+	if u.CanAccess(acl1, knox.Admin) {
 		t.Error("machine can access user permission with increased access type")
 	}
 
 	acl2 := knox.ACL([]knox.Access{a2})
-	canAccess, _ = u.CanAccess(acl2, knox.Write)
-	if canAccess {
+	if u.CanAccess(acl2, knox.Write) {
 		t.Error("machine can access group they are not in")
 	}
 
 	acl3 := knox.ACL([]knox.Access{a3})
-	canAccess, _ = u.CanAccess(acl3, knox.Read)
-	if !canAccess {
+	if !u.CanAccess(acl3, knox.Read) {
 		t.Error("machine can't access group they are in")
 	}
 
 	acl4 := knox.ACL([]knox.Access{a2, a3, a1})
-	canAccess, _ = u.CanAccess(acl4, knox.Admin)
-	if !canAccess {
+	if !u.CanAccess(acl4, knox.Admin) {
 		t.Error("machine can't access group they are in with multiple members")
 	}
 
 	acl5 := knox.ACL([]knox.Access{})
-	canAccess, _ = u.CanAccess(acl5, knox.Admin)
-	if canAccess {
+	if u.CanAccess(acl5, knox.Admin) {
 		t.Error("machine can access empty ACL")
 	}
 }
@@ -100,12 +88,10 @@ func TestServiceCanAccess(t *testing.T) {
 		Type: knox.Service}
 
 	acl1 := knox.ACL([]knox.Access{a1})
-	canAccess, _ := s.CanAccess(acl1, knox.Admin)
-	if canAccess {
+	if s.CanAccess(acl1, knox.Admin) {
 		t.Error("service can't access user permission matching id")
 	}
-	canAccess, _ = s.CanAccess(acl1, knox.Read)
-	if !canAccess {
+	if !s.CanAccess(acl1, knox.Read) {
 		t.Error("service can't access group they are in")
 	}
 }

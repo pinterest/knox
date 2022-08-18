@@ -7,12 +7,7 @@ import (
 	"time"
 
 	"github.com/pinterest/knox"
-	/* For DB testing:
-	"database/sql"
-	_ "github.com/go-sql-driver/mysql"
-	_ "github.com/lib/pq"
-	_ "github.com/mattn/go-sqlite3"
-	*/)
+)
 
 func newEncKeyVersion(d []byte, s knox.VersionStatus) EncKeyVersion {
 	version := EncKeyVersion{}
@@ -77,57 +72,6 @@ func TestDBCopy(t *testing.T) {
 
 }
 
-/*
-TODO(devinlundberg): figure out how to make these work as unit tests (or build out a way to do integration tests)
-
-// TestMySQL runs all keydb tests on a mysqldb. It requires an empty db.
-func TestMySQL(t *testing.T) {
-	d, err := sql.Open("mysql", "user:password@/test")
-	if err != nil {
-		t.Fatal(err)
-	}
-	db, err := NewSQLDB(d)
-	if err != nil {
-		t.Fatal(err)
-	}
-	timeout := 100 * time.Millisecond
-	TesterAddGet(t, db, timeout)
-	TesterAddUpdate(t, db, timeout)
-	TesterAddRemove(t, db, timeout)
-}
-
-// TestSQLite runs all keydb tests on a file it requires this file to be empty.
-func TestSQLite(t *testing.T) {
-	d, err := sql.Open("sqlite3", "foo.db")
-	if err != nil {
-		t.Fatal(err)
-	}
-	db, err := NewSQLDB(d)
-	if err != nil {
-		t.Fatal(err)
-	}
-	timeout := 100 * time.Millisecond
-	TesterAddGet(t, db, timeout)
-	TesterAddUpdate(t, db, timeout)
-	TesterAddRemove(t, db, timeout)
-}
-
-// TestPostgreSQL runs all keydb tests on a postgres db. It requires an empty db.
-func TestPostgreSQL(t *testing.T) {
-	d, err := sql.Open("postgres", "user=user dbname=test sslmode=disable")
-	if err != nil {
-		t.Fatal(err)
-	}
-	db, err := NewPostgreSQLDB(d)
-	if err != nil {
-		t.Fatal(err)
-	}
-	timeout := 100 * time.Millisecond
-	TesterAddGet(t, db, timeout)
-	TesterAddUpdate(t, db, timeout)
-	TesterAddRemove(t, db, timeout)
-}
-*/
 func TestTempErrs(t *testing.T) {
 	db := &TempDB{}
 	err := fmt.Errorf("Does not compute... EXTERMINATE! EXTERMINATE!")

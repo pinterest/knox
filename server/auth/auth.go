@@ -337,20 +337,20 @@ func (u user) Type() string {
 
 // CanAccess determines if a User can access an object represented by the ACL
 // with a certain AccessType. It compares LDAP username and LDAP group.
-func (u user) CanAccess(acl knox.ACL, t knox.AccessType) (bool, string) {
+func (u user) CanAccess(acl knox.ACL, t knox.AccessType) bool {
 	for _, a := range acl {
 		switch a.Type {
 		case knox.User:
 			if a.ID == u.ID && a.AccessType.CanAccess(t) {
-				return true, "0u" + u.ID
+				return true
 			}
 		case knox.UserGroup:
 			if u.inGroup(a.ID) && a.AccessType.CanAccess(t) {
-				return true, "0g" + a.ID
+				return true
 			}
 		}
 	}
-	return false, ""
+	return false
 }
 
 // Machine represents a given machine by their hostname.
@@ -367,21 +367,21 @@ func (m machine) Type() string {
 
 // CanAccess determines if a Machine can access an object represented by the ACL
 // with a certain AccessType. It compares Machine hostname and hostname prefix.
-func (m machine) CanAccess(acl knox.ACL, t knox.AccessType) (bool, string) {
+func (m machine) CanAccess(acl knox.ACL, t knox.AccessType) bool {
 	for _, a := range acl {
 		switch a.Type {
 		case knox.Machine:
 			if a.ID == string(m) && a.AccessType.CanAccess(t) {
-				return true, "0m" + string(m)
+				return true
 			}
 		case knox.MachinePrefix:
 			// TODO(devinlundberg): Investigate security implications of this
 			if strings.HasPrefix(string(m), a.ID) && a.AccessType.CanAccess(t) {
-				return true, "0p" + a.ID
+				return true
 			}
 		}
 	}
-	return false, ""
+	return false
 }
 
 // Service represents a given service from a trust domain
@@ -402,20 +402,20 @@ func (s service) Type() string {
 
 // CanAccess determines if a Service can access an object represented by the ACL
 // with a certain AccessType. It compares Service id and id prefix.
-func (s service) CanAccess(acl knox.ACL, t knox.AccessType) (bool, string) {
+func (s service) CanAccess(acl knox.ACL, t knox.AccessType) bool {
 	for _, a := range acl {
 		switch a.Type {
 		case knox.Service:
 			if a.ID == string(s.GetID()) && a.AccessType.CanAccess(t) {
-				return true, "0s" + string(s.GetID())
+				return true
 			}
 		case knox.ServicePrefix:
 			if strings.HasPrefix(s.GetID(), a.ID) && a.AccessType.CanAccess(t) {
-				return true, "0n" + a.ID
+				return true
 			}
 		}
 	}
-	return false, ""
+	return false
 }
 
 type mockHTTPClient struct{}

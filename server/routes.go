@@ -390,9 +390,13 @@ func postVersionHandler(m KeyManager, principal knox.Principal, parameters map[s
 // It takes the new status as input. Accepted inputs include:
 // If the key version is Inactive, it can become Active.
 // If the key version is Active, it can become Inactive or Primary. Note that,
-//   this will change the current Primary key to Active.
+//
+//	this will change the current Primary key to Active.
+//
 // If the key version is Primary, the version status cannot be changed. Instead
-//   promote another key version to Primary to replace it.
+//
+//	promote another key version to Primary to replace it.
+//
 // The route for this handler is PUT /v0/keys/<key_id>/versions/<version_id>/
 // The principal needs Write access.
 func putVersionsHandler(m KeyManager, principal knox.Principal, parameters map[string]string) (interface{}, *HTTPError) {

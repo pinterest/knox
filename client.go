@@ -202,7 +202,7 @@ func NewClient(host string, client HTTP, authHandler func() string, keyFolder, v
 // CacheGetKey gets the key from file system cache.
 func (c *HTTPClient) CacheGetKey(keyID string) (*Key, error) {
 	if c.KeyFolder == "" {
-		return nil, fmt.Errorf("No folder set for cached key.")
+		return nil, fmt.Errorf("no folder set for cached key")
 	}
 	path := c.KeyFolder + keyID
 	b, err := ioutil.ReadFile(path)
@@ -214,6 +214,12 @@ func (c *HTTPClient) CacheGetKey(keyID string) (*Key, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	// do not return the invalid format cached keys
+	if k.ID == "" || k.ACL == nil || k.VersionList == nil || k.VersionHash == "" {
+		return nil, fmt.Errorf("not invalid key content for the cached key")
+	}
+
 	return &k, nil
 }
 

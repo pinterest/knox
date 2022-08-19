@@ -195,6 +195,10 @@ func (d *daemon) update() error {
 			if err != nil {
 				// Keep going in spite of failure
 				logf("error getting cache key: %s", err)
+				// Remove existing cached key with invalid format (saved in previous version clients)
+				if _, err = os.Stat(d.keyFilename(keyID)); err == nil {
+					d.deleteKey(keyID)
+				}
 			} else {
 				keyMap[keyID] = key.VersionHash
 			}
@@ -270,6 +274,11 @@ func (d daemon) processKey(keyID string) error {
 		}
 		return fmt.Errorf("Error getting key %s: %s", keyID, err.Error())
 	}
+	// Do not cache any new keys if they have invalid content
+	if key.ID == "" || key.ACL == nil || key.VersionList == nil || key.VersionHash == "" {
+		return fmt.Errorf("invalid key content returned")
+	}
+
 	b, err := json.Marshal(key)
 	if err != nil {
 		return fmt.Errorf("Error marshalling key %s: %s", keyID, err.Error())

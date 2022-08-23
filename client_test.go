@@ -2,8 +2,11 @@ package knox
 
 import (
 	"encoding/json"
+	"os"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"path"
 	"reflect"
 	"sync/atomic"
 	"testing"
@@ -103,7 +106,7 @@ func TestGetKey(t *testing.T) {
 	})
 	defer srv.Close()
 
-	cli := MockClient(srv.Listener.Addr().String())
+	cli := MockClient(srv.Listener.Addr().String(), "")
 
 	k, err := cli.GetKey("testkey")
 	if err != nil {
@@ -145,7 +148,7 @@ func TestGetKeys(t *testing.T) {
 	})
 	defer srv.Close()
 
-	cli := MockClient(srv.Listener.Addr().String())
+	cli := MockClient(srv.Listener.Addr().String(), "")
 
 	k, err := cli.GetKeys(map[string]string{"y": "x"})
 	if err != nil {
@@ -191,7 +194,7 @@ func TestCreateKey(t *testing.T) {
 	})
 	defer srv.Close()
 
-	cli := MockClient(srv.Listener.Addr().String())
+	cli := MockClient(srv.Listener.Addr().String(), "")
 
 	acl := ACL([]Access{
 		{
@@ -242,7 +245,7 @@ func TestAddVersion(t *testing.T) {
 	})
 	defer srv.Close()
 
-	cli := MockClient(srv.Listener.Addr().String())
+	cli := MockClient(srv.Listener.Addr().String(), "")
 
 	k, err := cli.AddVersion("testkey", []byte("data"))
 	if err != nil {
@@ -269,7 +272,7 @@ func TestDeleteKey(t *testing.T) {
 	})
 	defer srv.Close()
 
-	cli := MockClient(srv.Listener.Addr().String())
+	cli := MockClient(srv.Listener.Addr().String(), "")
 
 	err = cli.DeleteKey("testkey")
 	if err != nil {
@@ -296,7 +299,7 @@ func TestPutVersion(t *testing.T) {
 	})
 	defer srv.Close()
 
-	cli := MockClient(srv.Listener.Addr().String())
+	cli := MockClient(srv.Listener.Addr().String(), "")
 
 	err = cli.UpdateVersion("testkey", "123", 2342)
 	if err == nil {
@@ -328,7 +331,7 @@ func TestPutAccess(t *testing.T) {
 	})
 	defer srv.Close()
 
-	cli := MockClient(srv.Listener.Addr().String())
+	cli := MockClient(srv.Listener.Addr().String(), "")
 
 	a := Access{
 		Type:       User,
@@ -381,7 +384,7 @@ func TestConcurrentDeletes(t *testing.T) {
 	})
 	defer srv.Close()
 
-	cli := MockClient(srv.Listener.Addr().String())
+	cli := MockClient(srv.Listener.Addr().String(), "")
 
 	// Delete 2 independent keys in succession.
 	err := cli.DeleteKey("testkey1")
@@ -431,7 +434,7 @@ func TestGetKeyWithStatus(t *testing.T) {
 	})
 	defer srv.Close()
 
-	cli := MockClient(srv.Listener.Addr().String())
+	cli := MockClient(srv.Listener.Addr().String(), "")
 
 	k, err := cli.GetKeyWithStatus("testkey", Inactive)
 	if err != nil {
@@ -451,5 +454,59 @@ func TestGetKeyWithStatus(t *testing.T) {
 	}
 	if k.Path != "" {
 		t.Fatalf("path '%v' is not empty", k.Path)
+	}
+}
+
+func TestGetInvalidKeys(t *testing.T) {
+	expected := Key{
+		ID: "",
+		ACL: nil,
+		VersionList: nil,
+		VersionHash: "",
+	}
+
+	bytes, err := json.Marshal(expected)
+	if err != nil {
+		t.Fatalf("Error marshalling key %s", err)
+	}
+
+	tempDir := t.TempDir()
+	err = os.WriteFile(path.Join(tempDir, "testkey"), bytes, 0600)
+	if err != nil {
+		t.Fatalf("Failed to write invalid test key: %s", err) 
+	}
+
+	resp, err := buildGoodResponse(expected)
+	if err != nil {
+		t.Fatalf("%s is not nil", err)
+	}
+	srv := buildServer(200, resp, func(r *http.Request) {
+		if r.Method != "GET" {
+			t.Fatalf("%s is not GET", r.Method)
+		}
+		if r.URL.Path != "/v0/keys/testkey/" {
+			t.Fatalf("%s is not %s", r.URL.Path, "/v0/keys/testkey/")
+		}
+	})
+	defer srv.Close()
+
+	cli := MockClient(srv.Listener.Addr().String(), tempDir)
+
+	_, err = cli.CacheGetKey("testkey")
+	if err == nil {
+		t.Fatalf("error expected for invalid key content")
+	} else {
+		if err.Error() != "invalid key content for the cached key" {
+			t.Fatalf("%s is not the expected error message", err)
+		}
+	}
+
+	_, err = cli.NetworkGetKey("testkey")
+	if err == nil {
+		t.Fatalf("error expected for invalid key content")
+	} else {
+		if err.Error() != "invalid key content for the remote key" {
+			t.Fatalf("%s is not the expected error message", err)
+		}
 	}
 }

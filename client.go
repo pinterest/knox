@@ -13,6 +13,7 @@ import (
 	"net/url"
 	"os"
 	"os/exec"
+	"path"
 	"sync"
 	"time"
 )
@@ -204,7 +205,7 @@ func (c *HTTPClient) CacheGetKey(keyID string) (*Key, error) {
 	if c.KeyFolder == "" {
 		return nil, fmt.Errorf("no folder set for cached key")
 	}
-	path := c.KeyFolder + keyID
+	path := path.Join(c.KeyFolder, keyID)
 	b, err := ioutil.ReadFile(path)
 	if err != nil {
 		return nil, err
@@ -217,7 +218,7 @@ func (c *HTTPClient) CacheGetKey(keyID string) (*Key, error) {
 
 	// do not return the invalid format cached keys
 	if k.ID == "" || k.ACL == nil || k.VersionList == nil || k.VersionHash == "" {
-		return nil, fmt.Errorf("not invalid key content for the cached key")
+		return nil, fmt.Errorf("invalid key content for the cached key")
 	}
 
 	return &k, nil
@@ -227,6 +228,12 @@ func (c *HTTPClient) CacheGetKey(keyID string) (*Key, error) {
 func (c *HTTPClient) NetworkGetKey(keyID string) (*Key, error) {
 	key := &Key{}
 	err := c.getHTTPData("GET", "/v0/keys/"+keyID+"/", nil, key)
+
+	// do not return the invalid format remote keys
+	if key.ID == "" || key.ACL == nil || key.VersionList == nil || key.VersionHash == "" {
+		return nil, fmt.Errorf("invalid key content for the remote key")
+	}
+
 	return key, err
 }
 
@@ -242,7 +249,7 @@ func (c *HTTPClient) GetKey(keyID string) (*Key, error) {
 // CacheGetKeyWithStatus gets the key with status from file system cache.
 func (c *HTTPClient) CacheGetKeyWithStatus(keyID string, status VersionStatus) (*Key, error) {
 	if c.KeyFolder == "" {
-		return nil, fmt.Errorf("No folder set for cached key.")
+		return nil, fmt.Errorf("no folder set for cached key")
 	}
 	st, err := status.MarshalJSON()
 	if err != nil {
@@ -422,13 +429,13 @@ func getHTTPResp(cli HTTP, r *http.Request, resp *Response) error {
 }
 
 // MockClient builds a client that ignores certs and talks to the given host.
-func MockClient(host string) *HTTPClient {
+func MockClient(host, keyFolder string) *HTTPClient {
 	return &HTTPClient{
 		Host: host,
 		AuthHandler: func() string {
 			return "TESTAUTH"
 		},
-		KeyFolder: "",
+		KeyFolder: keyFolder,
 		Client:    &http.Client{Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}},
 		Version:   "mock",
 	}

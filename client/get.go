@@ -113,16 +113,18 @@ func runGet(cmd *Command, args []string) *ErrorStatus {
 		successGetKeyMetric(keyID)
 		return nil
 	}
-	if *getVersion == "" {
-		fmt.Printf("%s", string(key.VersionList.GetPrimary().Data))
-		successGetKeyMetric(keyID)
-		return nil
-	}
-	for _, v := range key.VersionList {
-		if strconv.FormatUint(v.ID, 10) == *getVersion {
-			fmt.Printf("%s", string(v.Data))
+	if key.VersionList != nil {
+		if *getVersion == "" {
+			fmt.Printf("%s", string(key.VersionList.GetPrimary().Data))
 			successGetKeyMetric(keyID)
 			return nil
+		}
+		for _, v := range key.VersionList {
+			if strconv.FormatUint(v.ID, 10) == *getVersion {
+				fmt.Printf("%s", string(v.Data))
+				successGetKeyMetric(keyID)
+				return nil
+			}
 		}
 	}
 	failureGetKeyMetric(keyID, errors.New("key version not found"))

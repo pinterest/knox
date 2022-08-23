@@ -88,7 +88,7 @@ func setUpTest(t *testing.T) (*returnParameters, string, daemon) {
 	if err != nil {
 		t.Fatal("Failed to create temp directory: " + err.Error())
 	}
-	cli := knox.MockClient(addr)
+	cli := knox.MockClient(addr, "")
 	cli.KeyFolder = dir + keysDir
 	d := daemon{
 		dir:          dir,

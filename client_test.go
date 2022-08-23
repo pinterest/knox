@@ -2,9 +2,9 @@ package knox
 
 import (
 	"encoding/json"
-	"os"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"path"
 	"reflect"
 	"sync/atomic"
@@ -458,8 +458,8 @@ func TestGetKeyWithStatus(t *testing.T) {
 
 func TestGetInvalidKeys(t *testing.T) {
 	expected := Key{
-		ID: "",
-		ACL: nil,
+		ID:          "",
+		ACL:         nil,
 		VersionList: nil,
 		VersionHash: "",
 	}
@@ -472,7 +472,7 @@ func TestGetInvalidKeys(t *testing.T) {
 	tempDir := t.TempDir()
 	err = os.WriteFile(path.Join(tempDir, "testkey"), bytes, 0600)
 	if err != nil {
-		t.Fatalf("Failed to write invalid test key: %s", err) 
+		t.Fatalf("Failed to write invalid test key: %s", err)
 	}
 
 	resp, err := buildGoodResponse(expected)

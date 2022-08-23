@@ -195,7 +195,7 @@ func (d *daemon) update() error {
 			if err != nil {
 				// Keep going in spite of failure
 				logf("error getting cache key: %s", err)
-				// Remove existing cached key with invalid format (saved in previous version clients)
+				// Remove existing cached key with invalid format (saved with previous version clients)
 				if _, err = os.Stat(d.keyFilename(keyID)); err == nil {
 					d.deleteKey(keyID)
 				}

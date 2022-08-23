@@ -3,7 +3,6 @@ package knox
 import (
 	"encoding/json"
 	"os"
-	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"path"

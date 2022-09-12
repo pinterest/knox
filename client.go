@@ -228,6 +228,9 @@ func (c *HTTPClient) CacheGetKey(keyID string) (*Key, error) {
 func (c *HTTPClient) NetworkGetKey(keyID string) (*Key, error) {
 	key := &Key{}
 	err := c.getHTTPData("GET", "/v0/keys/"+keyID+"/", nil, key)
+	if err != nil {
+		return nil, err
+	}
 
 	// do not return the invalid format remote keys
 	if key.ID == "" || key.ACL == nil || key.VersionList == nil || key.VersionHash == "" {

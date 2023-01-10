@@ -381,7 +381,7 @@ type Key struct {
 	VersionList KeyVersionList `json:"versions"`
 	VersionHash string         `json:"hash"`
 	Path        string         `json:"path,omitempty"`
-	TinkKeyset  string         `json:"tinkKeyset"`
+	TinkKeyset  string         `json:"tinkKeyset,omitempty"`
 }
 
 // Validate calls makes sure all attributes of key are in good state.

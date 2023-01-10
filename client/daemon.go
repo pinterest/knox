@@ -49,6 +49,8 @@ var defaultDirPermission os.FileMode = 0777
 
 var daemonRefreshTime = 10 * time.Minute
 
+const tinkPrefix = "tink:"
+
 func runDaemon(cmd *Command, args []string) *ErrorStatus {
 
 	if os.Getenv("KNOX_MACHINE_AUTH") == "" {
@@ -280,7 +282,7 @@ func (d daemon) processKey(keyID string) error {
 		return fmt.Errorf("invalid key content returned")
 	}
 
-	if strings.HasPrefix(keyID, "tink:") {
+	if strings.HasPrefix(keyID, tinkPrefix) {
 		keysetHandle, _, err := getTinkKeysetHandleFromKnoxVersionList(key.VersionList)
 		if err != nil {
 			return fmt.Errorf("Error fetching keyset handle for this tink key %s: %s", keyID, err.Error())

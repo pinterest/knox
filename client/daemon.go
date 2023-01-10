@@ -2,8 +2,8 @@ package client
 
 import (
 	"bytes"
-	"encoding/json"
 	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -281,16 +281,16 @@ func (d daemon) processKey(keyID string) error {
 	}
 
 	if strings.HasPrefix(keyID, "tink:") {
-                keysetHandle, _, err := getTinkKeysetHandleFromKnoxVersionList(key.VersionList)
-                if err != nil {
-                        return fmt.Errorf("Error fetching keyset handle for this tink key %s: %s", keyID, err.Error())
-                }
-                tinkKeyset, err := convertTinkKeysetHandleToBytes(keysetHandle)
-                if err != nil {
-                        return fmt.Errorf("Error converting tink keyset handle to bytes %s: %s", keyID, err.Error())
-                }
-                key.TinkKeyset = base64.StdEncoding.EncodeToString(tinkKeyset)
-        }
+		keysetHandle, _, err := getTinkKeysetHandleFromKnoxVersionList(key.VersionList)
+		if err != nil {
+			return fmt.Errorf("Error fetching keyset handle for this tink key %s: %s", keyID, err.Error())
+		}
+		tinkKeyset, err := convertTinkKeysetHandleToBytes(keysetHandle)
+		if err != nil {
+			return fmt.Errorf("Error converting tink keyset handle to bytes %s: %s", keyID, err.Error())
+		}
+		key.TinkKeyset = base64.StdEncoding.EncodeToString(tinkKeyset)
+	}
 
 	b, err := json.Marshal(key)
 	if err != nil {

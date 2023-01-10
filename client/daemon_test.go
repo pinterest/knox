@@ -180,6 +180,49 @@ func TestProcessKey(t *testing.T) {
 	}
 }
 
+func TestProcessTinkKey(t *testing.T) {
+	params, dir, d := setUpTest(t)
+	defer TearDownTest(dir)
+	expectedTinkKeysetStr := "EmQKWAowdHlwZS5nb29nbGVhcGlzLmNvbS9nb29nbGUuY3J5cHRvLnRpbmsuQWVzR2NtS2V5EiIaIKMfoRISDw+QlZv88fJdP5qQG6sQdX79v6d5rMAi1JFtGAEQARjLvc6/AyAB"
+	var keyVersion knox.KeyVersion
+	keyVersion.ID = 1234567890
+	keyVersion.Data = []byte{8, 203, 189, 206, 191, 3, 18, 100, 10, 88, 10, 48, 116, 121, 112, 101, 46, 103, 111, 111, 103, 108, 101, 97, 112, 105, 115, 46, 99, 111, 109, 47, 103, 111, 111, 103, 108, 101, 46, 99, 114, 121, 112, 116, 111, 46, 116, 105, 110, 107, 46, 65, 101, 115, 71, 99, 109, 75, 101, 121, 18, 34, 26, 32, 163, 31, 161, 18, 18, 15, 15, 144, 149, 155, 252, 241, 242, 93, 63, 154, 144, 27, 171, 16, 117, 126, 253, 191, 167, 121, 172, 192, 34, 212, 145, 109, 24, 1, 16, 1, 24, 203, 189, 206, 191, 3, 32, 1}
+	keyVersion.Status = 1
+	keyVersion.CreationTime = 12345
+	expected := knox.Key{
+		ID:          "tink:aead:my_test_key",
+		ACL:         knox.ACL([]knox.Access{}),
+		VersionList: knox.KeyVersionList{keyVersion},
+		VersionHash: "VersionHash",
+		TinkKeyset:  "",
+	}
+	if err := addRegisteredKey(expected.ID, d.registerFilename()); err != nil {
+		t.Fatal("Failed to register key: " + err.Error())
+	}
+	params.setFunc(func(r *http.Request) {
+		switch r.URL.Path {
+		case "/v0/keys/":
+			setGoodResponse(params, []string{expected.ID})
+		case "/v0/keys/" + expected.ID + "/":
+			setGoodResponse(params, expected)
+		default:
+			t.Fatal("Unexpected path:" + r.URL.Path)
+		}
+	})
+	err := d.processKey(expected.ID)
+	if err != nil {
+		t.Fatalf("%s is not nil", err)
+	}
+
+	cachedTinkKey, err := d.cli.CacheGetKey(expected.ID)
+	if err != nil {
+		t.Fatalf("%s is not nil", err)
+	}
+	if cachedTinkKey.TinkKeyset != expectedTinkKeysetStr {
+		t.Fatalf("%s is not equal to %s", expected.TinkKeyset, expectedTinkKeysetStr)
+	}
+}
+
 func TestUpdate(t *testing.T) {
 	params, dir, d := setUpTest(t)
 	defer TearDownTest(dir)

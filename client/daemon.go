@@ -2,6 +2,7 @@ package client
 
 import (
 	"bytes"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -47,6 +48,8 @@ var defaultFilePermission os.FileMode = 0666
 var defaultDirPermission os.FileMode = 0777
 
 var daemonRefreshTime = 10 * time.Minute
+
+const tinkPrefix = "tink:"
 
 func runDaemon(cmd *Command, args []string) *ErrorStatus {
 
@@ -277,6 +280,18 @@ func (d daemon) processKey(keyID string) error {
 	// Do not cache any new keys if they have invalid content
 	if key.ID == "" || key.ACL == nil || key.VersionList == nil || key.VersionHash == "" {
 		return fmt.Errorf("invalid key content returned")
+	}
+
+	if strings.HasPrefix(keyID, tinkPrefix) {
+		keysetHandle, _, err := getTinkKeysetHandleFromKnoxVersionList(key.VersionList)
+		if err != nil {
+			return fmt.Errorf("Error fetching keyset handle for this tink key %s: %s", keyID, err.Error())
+		}
+		tinkKeyset, err := convertTinkKeysetHandleToBytes(keysetHandle)
+		if err != nil {
+			return fmt.Errorf("Error converting tink keyset handle to bytes %s: %s", keyID, err.Error())
+		}
+		key.TinkKeyset = base64.StdEncoding.EncodeToString(tinkKeyset)
 	}
 
 	b, err := json.Marshal(key)

@@ -203,26 +203,59 @@ func TestKeyPathMarhaling(t *testing.T) {
 }
 
 func TestACLValidate(t *testing.T) {
-	a1 := Access{ID: "testmachine1", AccessType: Admin, Type: Machine}
-	a2 := Access{ID: "testuser", AccessType: Write, Type: User}
-	a3 := Access{ID: "testmachine", AccessType: Read, Type: MachinePrefix}
-	a6 := Access{ID: "spiffe://example.com/serviceA", AccessType: Read, Type: Service}
-	a7 := Access{ID: "spiffe://example.com/serviceA/", AccessType: Read, Type: ServicePrefix}
-	validACL := ACL([]Access{a1, a2, a3, a6, a7})
+	var accessEntries []Access
+
+	machineAdmin := Access{ID: "testmachine1", AccessType: Admin, Type: Machine}
+	userWrite := Access{ID: "testuser", AccessType: Write, Type: User}
+	machinePrefixRead := Access{ID: "testmachine", AccessType: Read, Type: MachinePrefix}
+	serviceRead := Access{ID: "spiffe://example.com/serviceA", AccessType: Read, Type: Service}
+	servicePrefixRead := Access{ID: "spiffe://example.com/serviceA/", AccessType: Read, Type: ServicePrefix}
+
+	accessEntries = []Access{machineAdmin, userWrite, machinePrefixRead, serviceRead, servicePrefixRead}
+	validACL := ACL(accessEntries)
 	if validACL.Validate() != nil {
+		t.Error("validACL should be valid")
+	}
+
+	machinePrefixNone := Access{ID: "unique", AccessType: None, Type: MachinePrefix}
+	accessEntriesPlusNoneACL := ACL(append(accessEntries, machinePrefixNone))
+	if accessEntriesPlusNoneACL.Validate() != ErrACLContainsNone {
+		t.Error("accessEntriesPlusNoneACL should err")
+	}
+
+	machineWrite := Access{ID: "testmachine1", AccessType: Write, Type: Machine}
+	// machineAdmin (inside accessEntries) and machineWrite have the same ID and Type
+	dupACL := ACL(append(accessEntries, machineWrite))
+	if dupACL.Validate() != ErrACLDuplicateEntries {
+		t.Error("dupACL should err")
+	}
+}
+
+func TestACLValidateHasHumanAdmin(t *testing.T) {
+	var accessEntries []Access
+
+	machineAdmin := Access{ID: "testmachine1", AccessType: Admin, Type: Machine}
+	userWrite := Access{ID: "testuser", AccessType: Write, Type: User}
+	machinePrefixRead := Access{ID: "testmachine", AccessType: Read, Type: MachinePrefix}
+	serviceRead := Access{ID: "spiffe://example.com/serviceA", AccessType: Read, Type: Service}
+	servicePrefixRead := Access{ID: "spiffe://example.com/serviceA/", AccessType: Read, Type: ServicePrefix}
+
+	accessEntries = []Access{machineAdmin, userWrite, machinePrefixRead, serviceRead, servicePrefixRead}
+	noHumanAdmin := ACL(accessEntries)
+	if noHumanAdmin.ValidateHasHumanAdmin() != ErrACLDoesNotContainHumanAdmin {
+		t.Error("ValidACL should not be valid")
+	}
+
+	userAdmin := Access{ID: "testuser", AccessType: Admin, Type: User}
+	validWithUserAdmin := ACL(append(noHumanAdmin, userAdmin))
+	if validWithUserAdmin.ValidateHasHumanAdmin() != nil {
 		t.Error("ValidACL should be valid")
 	}
 
-	a4 := Access{ID: "testmachine", AccessType: None, Type: MachinePrefix}
-	noneACL := ACL([]Access{a1, a2, a4})
-	if noneACL.Validate() == nil {
-		t.Error("noneACL should err")
-	}
-
-	a5 := Access{ID: "testmachine1", AccessType: Write, Type: Machine}
-	dupACL := ACL([]Access{a1, a5, a3})
-	if dupACL.Validate() == nil {
-		t.Error("dupACL should err")
+	userGroupAdmin := Access{ID: "testuser", AccessType: Admin, Type: UserGroup}
+	validWithGroupAdmin := ACL(append(noHumanAdmin, userGroupAdmin))
+	if validWithGroupAdmin.ValidateHasHumanAdmin() != nil {
+		t.Error("ValidACL should be valid")
 	}
 }
 

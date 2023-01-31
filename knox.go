@@ -17,6 +17,7 @@ var (
 	ErrACLDuplicateEntries = fmt.Errorf("Duplicate entries in ACL")
 	ErrACLContainsNone     = fmt.Errorf("ACL contains None access")
 	ErrACLEmptyPrincipal   = fmt.Errorf("Principals of type user, user group, machine, or machine prefix may not be empty.")
+	ErrACLDoesNotContainHumanAdmin = fmt.Errorf("ACL needs to have a user or group set as an admin")
 
 	ErrACLInvalidService               = fmt.Errorf("Service is invalid, must conform to 'spiffe://<domain>/<path>' format.")
 	ErrACLInvalidServicePrefixURL      = fmt.Errorf("Service prefix is invalid URL, must conform to 'spiffe://<domain>/<path>/' format.")
@@ -43,7 +44,7 @@ const (
 	spiffeScheme = "spiffe"
 )
 
-// InvalidTypeError is an error for to throw when in the json conversion.
+// An invalidTypeError is an error to throw when in the json conversion.
 type invalidTypeError struct {
 	badType string
 }
@@ -320,6 +321,19 @@ func (acl ACL) Validate() error {
 	return nil
 }
 
+// ValidateHasHumanAdmin ensures the ACL has at least 1 user or group set as an Admin. This is for when SPIFFEs create keys, we want to ensure there is a human owner set. Intended to be called separately from Validate.
+func (acl ACL) ValidateHasHumanAdmin() error {
+	for _, a := range acl {
+		if a.AccessType != Admin {
+			continue;
+		}
+		if a.Type == User || a.Type == UserGroup {
+			return nil
+		}
+	}
+	return ErrACLDoesNotContainHumanAdmin
+}
+
 // Add appends an access to the ACL. It does so by overwriting any existing access
 // that principal or group may have had.
 func (acl ACL) Add(a Access) ACL {
@@ -588,6 +602,8 @@ const (
 	BadRequestDataCode
 	BadKeyFormatCode
 	BadPrincipalIdentifier
+	BadAclCode
+	NoHumanAdminInAclCode
 )
 
 // Response is the format for responses from the api server.

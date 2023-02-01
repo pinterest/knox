@@ -12,6 +12,7 @@ import (
 
 	"github.com/pinterest/knox"
 	"github.com/pinterest/knox/log"
+	"github.com/pinterest/knox/server/auth"
 	"github.com/pinterest/knox/server/keydb"
 )
 
@@ -312,12 +313,17 @@ func newKeyVersion(d []byte, s knox.VersionStatus) knox.KeyVersion {
 }
 
 // NewKey creates a new Key with correctly set defaults.
-func newKey(id string, acl knox.ACL, d []byte, u knox.Principal) knox.Key {
+func newKey(id string, acl knox.ACL, d []byte, principal knox.Principal) knox.Key {
 	key := knox.Key{}
 	key.ID = id
 
-	creatorAccess := knox.Access{ID: u.GetID(), AccessType: knox.Admin, Type: knox.User}
-	key.ACL = acl.Add(creatorAccess)
+	// If principal is a service, we will have already checked `acl` for a human user or group
+	if auth.IsUser(principal) {
+		creatorAccess := knox.Access{ID: principal.GetID(), AccessType: knox.Admin, Type: knox.User}
+		key.ACL = acl.Add(creatorAccess)
+	} else {
+		key.ACL = acl
+	}
 	for _, a := range defaultAccess {
 		key.ACL = key.ACL.Add(a)
 	}

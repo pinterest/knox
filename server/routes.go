@@ -149,18 +149,18 @@ func postKeysHandler(m KeyManager, principal knox.Principal, parameters map[stri
 		}
 	}
 
-	// Only users -- and SPIFFEs when a human group/user is an admin in the ACL -- can create keys
+	// Only users -- and SPIFFEs when at latest 2 human users/groups are admins in the ACL -- can create keys
 	if auth.IsService(principal) {
 		err = acl.Validate()
 		if err != nil {
 			return nil, errF(knox.BadAclCode, "Error validating parameter 'acl'")
 		}
-		err = acl.ValidateHasHumanAdmin()
+		err = acl.ValidateHasMultipleHumanAdmins()
 		if err != nil {
-			return nil, errF(knox.NoHumanAdminInAclCode, "Parameter 'acl' does not have human admin")
+			return nil, errF(knox.NoMultipleHumanAdminsInAclCode, "Parameter 'acl' does not have multiple human admins")
 		}
 	} else if !auth.IsUser(principal) {
-		return nil, errF(knox.UnauthorizedCode, fmt.Sprintf("Must be a user (or SPIFFE if human admin in ACL) to create keys, principal is %s", principal.GetID()))
+		return nil, errF(knox.UnauthorizedCode, fmt.Sprintf("Must be a user (or SPIFFE if multiple human admins in ACL) to create keys, principal is %s", principal.GetID()))
 	}
 
 	keyID, keyIDOK := parameters["id"]

@@ -99,7 +99,7 @@ func TestPostKeys(t *testing.T) {
 		t.Fatal("Expected err")
 	} else if err.Subcode != knox.UnauthorizedCode {
 		t.Fatalf("Expected %v and got %v", knox.UnauthorizedCode, err.Subcode)
-	} else if err.Message != "Must be a user (or SPIFFE if human admin in ACL) to create keys, principal is MrRoboto" {
+	} else if err.Message != "Must be a user (or SPIFFE if multiple human admins in ACL) to create keys, principal is MrRoboto" {
 		t.Fatalf("Unexpected error message: %v", err.Message)
 	}
 
@@ -118,13 +118,22 @@ func TestPostKeys(t *testing.T) {
 	_, err = postKeysHandler(m, serviceA, map[string]string{"id": "a1", "data": Number1B64Encoded, "acl": `[{"type":"User","id":"testuser","access":"Write"}, {"type":"Machine","id":"testmachine1","access":"Admin"}]`})
 	if err == nil {
 		t.Fatal("Expected err")
-	} else if err.Subcode != knox.NoHumanAdminInAclCode {
-		t.Fatalf("Expected %v and got %v", knox.NoHumanAdminInAclCode, err.Subcode)
-	} else if err.Message != "Parameter 'acl' does not have human admin" {
+	} else if err.Subcode != knox.NoMultipleHumanAdminsInAclCode {
+		t.Fatalf("Expected %v and got %v", knox.NoMultipleHumanAdminsInAclCode, err.Subcode)
+	} else if err.Message != "Parameter 'acl' does not have multiple human admins" {
 		t.Fatalf("Unexpected error message: %v", err.Message)
 	}
-	// Valid ACL with human admin
+	// Valid ACL with only 1 human admin
 	_, err = postKeysHandler(m, serviceA, map[string]string{"id": "a0", "data": Number1B64Encoded, "acl": `[{"type":"User","id":"testuser","access":"Admin"}, {"type":"Machine","id":"testmachine1","access":"Admin"}]`})
+	if err == nil {
+		t.Fatal("Expected err")
+	} else if err.Subcode != knox.NoMultipleHumanAdminsInAclCode {
+		t.Fatalf("Expected %v and got %v", knox.NoMultipleHumanAdminsInAclCode, err.Subcode)
+	} else if err.Message != "Parameter 'acl' does not have multiple human admins" {
+		t.Fatalf("Unexpected error message: %v", err.Message)
+	}
+	// Valid ACL with 2 human admins
+	_, err = postKeysHandler(m, serviceA, map[string]string{"id": "a0", "data": Number1B64Encoded, "acl": `[{"type":"User","id":"testuser","access":"Admin"}, {"type":"User","id":"testuser2","access":"Admin"}]`})
 	if err != nil {
 		t.Fatalf("%+v is not nil", err)
 	}

@@ -231,30 +231,39 @@ func TestACLValidate(t *testing.T) {
 	}
 }
 
-func TestACLValidateHasHumanAdmin(t *testing.T) {
+func TestACLValidateHasMultipleHumanAdminss(t *testing.T) {
 	var accessEntries []Access
 
 	machineAdmin := Access{ID: "testmachine1", AccessType: Admin, Type: Machine}
-	userWrite := Access{ID: "testuser", AccessType: Write, Type: User}
+	userWrite := Access{ID: "testuserwrite", AccessType: Write, Type: User}
 	machinePrefixRead := Access{ID: "testmachine", AccessType: Read, Type: MachinePrefix}
 	serviceRead := Access{ID: "spiffe://example.com/serviceA", AccessType: Read, Type: Service}
 	servicePrefixRead := Access{ID: "spiffe://example.com/serviceA/", AccessType: Read, Type: ServicePrefix}
 
 	accessEntries = []Access{machineAdmin, userWrite, machinePrefixRead, serviceRead, servicePrefixRead}
+	// No human Admins
 	noHumanAdmin := ACL(accessEntries)
-	if noHumanAdmin.ValidateHasHumanAdmin() != ErrACLDoesNotContainHumanAdmin {
+	if noHumanAdmin.ValidateHasMultipleHumanAdmins() != ErrACLDoesNotContainMultipleHumanAdmins {
 		t.Error("ValidACL should not be valid")
 	}
 
-	userAdmin := Access{ID: "testuser", AccessType: Admin, Type: User}
+	// Only 1 user Admin
+	userAdmin := Access{ID: "testuseradmin", AccessType: Admin, Type: User}
 	validWithUserAdmin := ACL(append(noHumanAdmin, userAdmin))
-	if validWithUserAdmin.ValidateHasHumanAdmin() != nil {
+	if validWithUserAdmin.ValidateHasMultipleHumanAdmins() != ErrACLDoesNotContainMultipleHumanAdmins {
 		t.Error("ValidACL should be valid")
 	}
 
-	userGroupAdmin := Access{ID: "testuser", AccessType: Admin, Type: UserGroup}
+	// Only 1 group Admin
+	userGroupAdmin := Access{ID: "testgroup", AccessType: Admin, Type: UserGroup}
 	validWithGroupAdmin := ACL(append(noHumanAdmin, userGroupAdmin))
-	if validWithGroupAdmin.ValidateHasHumanAdmin() != nil {
+	if validWithGroupAdmin.ValidateHasMultipleHumanAdmins() != ErrACLDoesNotContainMultipleHumanAdmins {
+		t.Error("ValidACL should be valid")
+	}
+
+	// Success, both user admin and group admin
+	validWithMultipleHumanAdmins := ACL(append(noHumanAdmin, userAdmin, userGroupAdmin))
+	if validWithMultipleHumanAdmins.ValidateHasMultipleHumanAdmins() != nil {
 		t.Error("ValidACL should be valid")
 	}
 }

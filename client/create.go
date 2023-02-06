@@ -27,8 +27,8 @@ Please run "knox create --key-template <template_name> <key_identifier>".
 
 The original key version id will be print to stdout.
 
-Only users or SPIFFEs can create a new key. For SPIFFEs, an ACL must be provided with at least 1 user or group set as the admin.
-If ACL is not provided, the default access list will include the creator of this key, as well as a limited set of site reliablity and security engineers.
+Only users or SPIFFEs can create a new key. For SPIFFEs, an ACL must be provided with at least 2 users/groups set as admins.
+The default ACL will include a limited set of site reliablity and security engineers, and the creator if they are a user.
 
 For more about knox, see https://github.com/pinterest/knox.
 
@@ -57,7 +57,7 @@ func parseAcl(aclString string) (knox.ACL, error) {
 	if err != nil {
 		return nil, err
 	}
-	err = acl.ValidateHasHumanAdmin()
+	err = acl.ValidateHasMultipleHumanAdmins()
 	if err != nil {
 		return nil, err
 	}

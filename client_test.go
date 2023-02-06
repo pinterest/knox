@@ -199,11 +199,16 @@ func TestCreateKey(t *testing.T) {
 
 	cli := MockClient(srv.Listener.Addr().String(), "")
 
-	aclWithUserAdmin := ACL([]Access{
+	aclWithMultipleUserAdmins := ACL([]Access{
 		{
 			Type:       User,
 			AccessType: Admin,
 			ID:         "test",
+		},
+		{
+			Type:       User,
+			AccessType: Admin,
+			ID:         "test2",
 		},
 	})
 	aclWithUserRead := ACL([]Access{
@@ -238,7 +243,7 @@ func TestCreateKey(t *testing.T) {
 		t.Fatalf("Expected err is %v", err)
 	}
 
-	// Note: In `client/create.go` and `server/routes.go`, acl.ValidateHasHumanAdmin() would be called, but not in `client.go`
+	// Note: In `client/create.go` and `server/routes.go`, acl.ValidateHasMultipleHumanAdmins() would be called, but not in `client.go`
 	k, err := cli.CreateKey("testkey", DataBytes, aclWithUserRead)
 	if err != nil {
 		t.Fatalf("%s is not nil", err)
@@ -247,7 +252,7 @@ func TestCreateKey(t *testing.T) {
 		t.Fatalf("%d is not %d", k, expected)
 	}
 
-	k, err = cli.CreateKey("testkey", DataBytes, aclWithUserAdmin)
+	k, err = cli.CreateKey("testkey", DataBytes, aclWithMultipleUserAdmins)
 	if err != nil {
 		t.Fatalf("%s is not nil", err)
 	}

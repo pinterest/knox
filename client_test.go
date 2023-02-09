@@ -509,3 +509,10 @@ func TestGetInvalidKeys(t *testing.T) {
 		}
 	}
 }
+
+func TestNewFileClient(t *testing.T) {
+	_, err := NewFileClient("ThisKeyDoesNotExistSoWeExpectAnError")
+	if (err.Error() != "error getting knox key: ThisKeyDoesNotExistSoWeExpectAnError exit status 1 '\"\"'") && (err.Error() != "error getting knox key: ThisKeyDoesNotExistSoWeExpectAnError exec: \"knox\": executable file not found in $PATH '\"\"'") {
+		t.Fatal("Unexpected error", err.Error())
+	}
+}

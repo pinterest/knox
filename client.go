@@ -135,7 +135,7 @@ func NewMock(primary string, active []string) Client {
 // Register registers the given keyName with knox. If the operation fails, it returns an error.
 func Register(keyID string) ([]byte, error) {
 	cmd := exec.Command("knox", "register", "-g", "-k", keyID)
-	output, err := cmd.CombinedOutput()
+	output, err := cmd.Output()
 	if err != nil {
 		return nil, fmt.Errorf("error getting knox key: %s %v '%q'", keyID, err, output)
 	}

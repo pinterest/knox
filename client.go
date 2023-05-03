@@ -5,6 +5,7 @@ import (
 	"crypto/tls"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -134,12 +135,29 @@ func NewMock(primary string, active []string) Client {
 
 // Register registers the given keyName with knox. If the operation fails, it returns an error.
 func Register(keyID string) ([]byte, error) {
+	var stdout, stderr bytes.Buffer
+
+	// Note that we want to capture stdout/stderr separately, to make sure we don't mix
+	// the returned secret (stdout) with any errors or warning messages that might have
+	// been returned (stderr).
 	cmd := exec.Command("knox", "register", "-g", "-k", keyID)
-	output, err := cmd.Output()
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+
+	err := cmd.Run()
 	if err != nil {
-		return nil, fmt.Errorf("error getting knox key: %s %v '%q'", keyID, err, output)
+		errorMsg := fmt.Sprintf("error getting knox key %s. error: %v", keyID, err)
+		if stdout.Len() > 0 {
+			errorMsg += ", stdout: " + string(stdout.Bytes())
+		}
+		if stderr.Len() > 0 {
+			errorMsg += ", stderr: " + string(stderr.Bytes())
+		}
+		return nil, errors.New(errorMsg)
 	}
-	return output, nil
+
+	// If the command succeeded, we assume that the secret was returned on stdout.
+	return stdout.Bytes(), nil
 }
 
 // GetBackoffDuration returns a time duration to sleep based on the attempt #.

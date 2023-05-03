@@ -148,10 +148,10 @@ func Register(keyID string) ([]byte, error) {
 	if err != nil {
 		errorMsg := fmt.Sprintf("error getting knox key %s. error: %v", keyID, err)
 		if stdout.Len() > 0 {
-			errorMsg += ", stdout: " + string(stdout.Bytes())
+			errorMsg += ", stdout: '" + string(stdout.Bytes()) + "'"
 		}
 		if stderr.Len() > 0 {
-			errorMsg += ", stderr: " + string(stderr.Bytes())
+			errorMsg += ", stderr: '" + string(stderr.Bytes()) + "'"
 		}
 		return nil, errors.New(errorMsg)
 	}

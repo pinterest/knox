@@ -12,7 +12,7 @@
 name: "CodeQL"
 
 on:
-  push:
+  push: false
     branches: [ master ]
   pull_request:
     # The branches below must be a subset of the branches above
@@ -27,12 +27,12 @@ jobs:
     permissions:
       actions: read
       contents: read
-      security-events: write
+      security-events: read
 
     strategy:
-      fail-fast: false
+      fail-fast: true
       matrix:
-        language: [ 'go' ]
+        language: [ 'groovy' ]
 
     steps:
     - name: Set up Go 1.x

@@ -35,14 +35,16 @@ func setAPIError(r *http.Request, val *HTTPError) {
 
 // GetPrincipal gets the principal authenticated through the authentication decorator
 func GetPrincipal(r *http.Request) knox.Principal {
-	if rv := context.Get(r, principalContext); rv != nil {
-		return rv.(knox.Principal)
-	}
-	return nil
+	ctx := getOrInitializePrincipalContext(r)
+	return ctx.GetCurrentPrincipal()
 }
 
-func setPrincipal(r *http.Request, val knox.Principal) {
-	context.Set(r, principalContext, val)
+// SetPrincipal sets the principal authenticated through the authentication decorator.
+// For security reasons, this method will only set the Principal in the context for
+// the first invocation. Subsequent invocations WILL cause a panic.
+func SetPrincipal(r *http.Request, val knox.Principal) {
+	ctx := getOrInitializePrincipalContext(r)
+	ctx.SetCurrentPrincipal(val)
 }
 
 // GetParams gets the parameters for the request through the parameters context.
@@ -66,6 +68,15 @@ func getDB(r *http.Request) KeyManager {
 
 func setDB(r *http.Request, val KeyManager) {
 	context.Set(r, dbContext, val)
+}
+
+func getOrInitializePrincipalContext(r *http.Request) auth.PrincipalContext {
+	if ctx := context.Get(r, principalContext); ctx != nil {
+		return ctx.(auth.PrincipalContext)
+	}
+	ctx := auth.NewPrincipalContext(r)
+	context.Set(r, principalContext, ctx)
+	return ctx
 }
 
 // GetRouteID gets the short form function name for the route being called. Used for logging/metrics.
@@ -219,11 +230,11 @@ func Authentication(providers []auth.Provider) func(http.HandlerFunc) http.Handl
 				}
 			}
 			if defaultPrincipal == nil {
-				writeErr(errF(knox.UnauthenticatedCode, errReturned.Error()))(w, r)
+				WriteErr(errF(knox.UnauthenticatedCode, errReturned.Error()))(w, r)
 				return
 			}
 
-			setPrincipal(r, knox.NewPrincipalMux(defaultPrincipal, allPrincipals))
+			SetPrincipal(r, knox.NewPrincipalMux(defaultPrincipal, allPrincipals))
 			f(w, r)
 			return
 		}

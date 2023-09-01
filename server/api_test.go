@@ -174,7 +174,7 @@ func checkinternalServerErrorResponse(t *testing.T, w *httptest.ResponseRecorder
 
 func TestErrorHandler(t *testing.T) {
 	testErr := errF(knox.InternalServerErrorCode, "")
-	handler := writeErr(testErr)
+	handler := WriteErr(testErr)
 
 	w := httptest.NewRecorder()
 	handler(w, nil)

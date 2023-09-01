@@ -105,7 +105,7 @@ func GetRouter(
 
 	m := NewKeyManager(cryptor, db)
 
-	r.NotFoundHandler = setupRoute("404", m)(decorator(writeErr(errF(knox.NotFoundCode, ""))))
+	r.NotFoundHandler = setupRoute("404", m)(decorator(WriteErr(errF(knox.NotFoundCode, ""))))
 
 	for _, route := range allRoutes {
 		addRoute(r, route, decorator, m)
@@ -226,7 +226,9 @@ type Route struct {
 	Parameters []Parameter
 }
 
-func writeErr(apiErr *HTTPError) http.HandlerFunc {
+// WriteErr returns a function that can encode error information and set an
+// HTTP error response code in the specified HTTP response writer
+func WriteErr(apiErr *HTTPError) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		resp := new(knox.Response)
 		hostname, err := os.Hostname()
@@ -249,7 +251,9 @@ func writeErr(apiErr *HTTPError) http.HandlerFunc {
 	}
 }
 
-func writeData(w http.ResponseWriter, data interface{}) {
+// WriteData returns a function that can write arbitrary data to the specified
+// HTTP response writer
+func WriteData(w http.ResponseWriter, data interface{}) {
 	r := new(knox.Response)
 	r.Message = ""
 	r.Code = knox.OKCode
@@ -275,9 +279,9 @@ func (r Route) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	data, err := r.Handler(db, principal, ps)
 
 	if err != nil {
-		writeErr(err)(w, req)
+		WriteErr(err)(w, req)
 	} else {
-		writeData(w, data)
+		WriteData(w, data)
 	}
 }
 

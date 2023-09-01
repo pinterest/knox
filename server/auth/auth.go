@@ -8,10 +8,60 @@ import (
 	"io/ioutil"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
+	"github.com/gorilla/context"
 	"github.com/pinterest/knox"
 )
+
+type contextKey int
+
+const (
+	principalCtxKey contextKey = iota
+)
+
+type PrincipalContext interface {
+	SetCurrentPrincipal(principal knox.Principal)
+	GetCurrentPrincipal() knox.Principal
+}
+
+type principalContext struct {
+	principalCtxKey contextKey
+	request         *http.Request
+	once            sync.Once
+	invocationCount int
+}
+
+func NewPrincipalContext(request *http.Request) PrincipalContext {
+	return &principalContext{
+		principalCtxKey,
+		request,
+		sync.Once{},
+		0,
+	}
+}
+
+func (ctx *principalContext) GetCurrentPrincipal() knox.Principal {
+	if rv := context.Get(ctx.request, principalCtxKey); rv != nil {
+		return rv.(knox.Principal)
+	}
+	return nil
+}
+
+func (ctx *principalContext) SetCurrentPrincipal(principal knox.Principal) {
+	if ctx.invocationCount > 0 {
+		panic("SetPrincipal was called more than once during the lifetime of the HTTP request")
+	}
+	ctx.setPrincipalInner(ctx.request, principal)
+}
+
+func (ctx *principalContext) setPrincipalInner(httpRequest *http.Request, principal knox.Principal) {
+	ctx.once.Do(func() {
+		context.Set(httpRequest, ctx.principalCtxKey, principal)
+		ctx.invocationCount += 1
+	})
+}
 
 // Provider is used for authenticating requests via the authentication decorator.
 type Provider interface {

@@ -5,6 +5,7 @@ import (
 	"crypto/x509"
 	"encoding/base64"
 	"net/http"
+	"reflect"
 	"strings"
 	"time"
 
@@ -12,6 +13,53 @@ import (
 
 	"github.com/pinterest/knox"
 )
+
+func TestPrincipalContext(t *testing.T) {
+	originalPrincipal := NewUser("test", []string{"returntrue"}).(user)
+	newPrincipal := NewUser("hacker", []string{"returntrue"}).(user)
+
+	req, err := http.NewRequest("GET", "http://localhost/", nil)
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+
+	ctx := NewPrincipalContext(req)
+
+	currentPrincipal := ctx.GetCurrentPrincipal()
+	if currentPrincipal != nil {
+		t.Error("Current principal was expected to be null")
+	}
+
+	ctx.SetCurrentPrincipal(originalPrincipal)
+	currentPrincipal = ctx.GetCurrentPrincipal().(user)
+
+	if !reflect.DeepEqual(currentPrincipal, originalPrincipal) {
+		t.Errorf(
+			"Current principal was expected to be user: '%s'. Instead got: '%s'",
+			originalPrincipal.GetID(),
+			currentPrincipal.GetID(),
+		)
+	}
+
+	panicRecovery := func() {
+		recoveryValue := recover()
+		if recoveryValue == nil {
+			t.Error("Expected 'SetCurrentPrincipal' to panic on second call")
+		}
+
+		currentPrincipal = ctx.GetCurrentPrincipal()
+		if !reflect.DeepEqual(currentPrincipal, originalPrincipal) {
+			t.Errorf(
+				"Current principal was expected to be user: '%s'. Instead got: '%s'",
+				originalPrincipal.GetID(),
+				currentPrincipal.GetID(),
+			)
+		}
+	}
+	defer panicRecovery()
+
+	ctx.SetCurrentPrincipal(newPrincipal)
+}
 
 func TestUserCanAccess(t *testing.T) {
 	u := NewUser("test", []string{"returntrue"})

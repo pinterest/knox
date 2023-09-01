@@ -230,7 +230,7 @@ func Authentication(providers []auth.Provider) func(http.HandlerFunc) http.Handl
 				}
 			}
 			if defaultPrincipal == nil {
-				writeErr(errF(knox.UnauthenticatedCode, errReturned.Error()))(w, r)
+				WriteErr(errF(knox.UnauthenticatedCode, errReturned.Error()))(w, r)
 				return
 			}
 

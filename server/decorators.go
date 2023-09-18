@@ -204,8 +204,14 @@ func buildRequest(req *http.Request, p knox.Principal, params map[string]string)
 	return r
 }
 
+type ProviderMatcher func(provider auth.Provider, request *http.Request) (providerSupportsRequest bool, tokenFromRequest string)
+
 // Authentication sets the principal or returns an error if the principal cannot be authenticated.
-func Authentication(providers []auth.Provider) func(http.HandlerFunc) http.HandlerFunc {
+func Authentication(providers []auth.Provider, matcher ProviderMatcher) func(http.HandlerFunc) http.HandlerFunc {
+	if matcher == nil {
+		matcher = providerMatch
+	}
+
 	return func(f http.HandlerFunc) http.HandlerFunc {
 		return func(w http.ResponseWriter, r *http.Request) {
 			var defaultPrincipal knox.Principal
@@ -213,7 +219,7 @@ func Authentication(providers []auth.Provider) func(http.HandlerFunc) http.Handl
 			errReturned := fmt.Errorf("No matching authentication providers found")
 
 			for _, p := range providers {
-				if token, match := providerMatch(p, r.Header.Get("Authorization")); match {
+				if match, token := matcher(p, r); match {
 					principal, errAuthenticate := p.Authenticate(token, r)
 					if errAuthenticate != nil {
 						errReturned = errAuthenticate
@@ -241,11 +247,13 @@ func Authentication(providers []auth.Provider) func(http.HandlerFunc) http.Handl
 	}
 }
 
-func providerMatch(provider auth.Provider, a string) (string, bool) {
-	if len(a) > 2 && a[0] == provider.Version() && a[1] == provider.Type() {
-		return a[2:], true
+func providerMatch(provider auth.Provider, request *http.Request) (providerSupportsRequest bool, tokenFromRequest string) {
+	authorizationHeaderValue := request.Header.Get("Authorization")
+
+	if len(authorizationHeaderValue) > 2 && authorizationHeaderValue[0] == provider.Version() && authorizationHeaderValue[1] == provider.Type() {
+		return true, authorizationHeaderValue[2:]
 	}
-	return "", false
+	return false, ""
 }
 
 func parseParams(parameters []Parameter) func(http.HandlerFunc) http.HandlerFunc {

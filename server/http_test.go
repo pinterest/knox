@@ -60,7 +60,7 @@ func setup() {
 	decorators := [](func(http.HandlerFunc) http.HandlerFunc){
 		AddHeader("Content-Type", "application/json"),
 		AddHeader("X-Content-Type-Options", "nosniff"),
-		Authentication([]auth.Provider{auth.MockGitHubProvider()}),
+		Authentication([]auth.Provider{auth.MockGitHubProvider()}, nil),
 	}
 	var err error
 	router, err = GetRouter(cryptor, db, decorators, make([]Route, 0))

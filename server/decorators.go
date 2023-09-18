@@ -204,8 +204,19 @@ func buildRequest(req *http.Request, p knox.Principal, params map[string]string)
 	return r
 }
 
+// ProviderMatcher is a function that determines whether or not the specified
+// authentication provider is suitable for the specified HTTP request. It is
+// expected to return a boolean value detailing whether or not the specified
+// provider is a match and is also expected to return any applicable
+// authentication payload that would then be passed to the provider.
+type ProviderMatcher func(provider auth.Provider, request *http.Request) (providerSupportsRequest bool, authenticationPayload string)
+
 // Authentication sets the principal or returns an error if the principal cannot be authenticated.
-func Authentication(providers []auth.Provider) func(http.HandlerFunc) http.HandlerFunc {
+func Authentication(providers []auth.Provider, matcher ProviderMatcher) func(http.HandlerFunc) http.HandlerFunc {
+	if matcher == nil {
+		matcher = providerMatch
+	}
+
 	return func(f http.HandlerFunc) http.HandlerFunc {
 		return func(w http.ResponseWriter, r *http.Request) {
 			var defaultPrincipal knox.Principal
@@ -213,8 +224,8 @@ func Authentication(providers []auth.Provider) func(http.HandlerFunc) http.Handl
 			errReturned := fmt.Errorf("No matching authentication providers found")
 
 			for _, p := range providers {
-				if token, match := providerMatch(p, r.Header.Get("Authorization")); match {
-					principal, errAuthenticate := p.Authenticate(token, r)
+				if match, payload := matcher(p, r); match {
+					principal, errAuthenticate := p.Authenticate(payload, r)
 					if errAuthenticate != nil {
 						errReturned = errAuthenticate
 						continue
@@ -241,11 +252,13 @@ func Authentication(providers []auth.Provider) func(http.HandlerFunc) http.Handl
 	}
 }
 
-func providerMatch(provider auth.Provider, a string) (string, bool) {
-	if len(a) > 2 && a[0] == provider.Version() && a[1] == provider.Type() {
-		return a[2:], true
+func providerMatch(provider auth.Provider, request *http.Request) (providerSupportsRequest bool, payload string) {
+	authorizationHeaderValue := request.Header.Get("Authorization")
+
+	if len(authorizationHeaderValue) > 2 && authorizationHeaderValue[0] == provider.Version() && authorizationHeaderValue[1] == provider.Type() {
+		return true, authorizationHeaderValue[2:]
 	}
-	return "", false
+	return false, ""
 }
 
 func parseParams(parameters []Parameter) func(http.HandlerFunc) http.HandlerFunc {

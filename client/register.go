@@ -41,6 +41,7 @@ var registerKey = cmdRegister.Flag.String("k", "", "")
 var registerKeyFile = cmdRegister.Flag.String("f", "", "")
 var registerAndGet = cmdRegister.Flag.Bool("g", false, "")
 var registerTimeout = cmdRegister.Flag.String("t", "5s", "")
+var noCache = cmdRegister.Flag.Bool("no-cache", false, "no cache for keys")
 
 const registerRecheckTime = 10 * time.Millisecond
 
@@ -57,6 +58,10 @@ func parseTimeout(val string) (time.Duration, error) {
 }
 
 func runRegister(cmd *Command, args []string) *ErrorStatus {
+	if *noCache{
+		fmt.Println("Cannot Register in No Cache mode")
+		return nil
+	}
 	timeout, err := parseTimeout(*registerTimeout)
 	if err != nil {
 		return &ErrorStatus{fmt.Errorf("Invalid value for timeout flag: %s", err.Error()), false}

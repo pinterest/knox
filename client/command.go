@@ -56,7 +56,6 @@ type VisibilityParams struct {
 	SummaryMetrics func(map[string]uint64)
 	InvokeMetrics  func(map[string]string)
 	GetKeyMetrics  func(map[string]string)
-	NoCache        bool  
 }
 
 var logf = func(string, ...interface{}) {}
@@ -73,7 +72,6 @@ func Run(
 	) {
 
 	cli = client
-	cache := true
 	if p != nil {
 		if p.Logf != nil {
 			logf = p.Logf
@@ -89,9 +87,6 @@ func Run(
 		}
 		if p.GetKeyMetrics != nil {
 			clientGetKeyMetrics = p.GetKeyMetrics
-		}
-		if p.NoCache {
-			cache = false
 		}
 		if loginCommand == nil {
 			fatalf("A login command was not supplied, you must supply a login command.")
@@ -117,9 +112,6 @@ func Run(
 			if cmd.CustomFlags {
 				args = args[1:]
 			} else {
-				if !cache{
-					args = append(args, "-no-cache")
-				}
 				cmd.Flag.Parse(args[1:])
 				args = cmd.Flag.Args()
 			}

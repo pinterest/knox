@@ -39,7 +39,6 @@ var getNetwork = cmdGet.Flag.Bool("n", false, "")
 var getAll = cmdGet.Flag.Bool("a", false, "")
 var getTinkKeyset = cmdGet.Flag.Bool("tink-keyset", false, "get the stored tink keyset of the given knox identifier entirely")
 var getTinkKeysetInfo = cmdGet.Flag.Bool("tink-keyset-info", false, "get the metadata of the stored tink keyset of the given knox identifier")
-var noCache = cmdGet.Flag.Bool("no-cache", false, "no cache for keys")
 
 func successGetKeyMetric(keyID string) {
 	clientGetKeyMetrics(map[string]string{
@@ -66,7 +65,7 @@ func runGet(cmd *Command, args []string) *ErrorStatus {
 	var err error
 	var key *knox.Key
 	if *getTinkKeyset {
-		tinkKeysetInBytes, err := retrieveTinkKeyset(keyID, *getNetwork||*noCache)
+		tinkKeysetInBytes, err := retrieveTinkKeyset(keyID, *getNetwork)
 		if err != nil {
 			failureGetKeyMetric(keyID, err)
 			return err
@@ -76,7 +75,7 @@ func runGet(cmd *Command, args []string) *ErrorStatus {
 		return nil
 	}
 	if *getTinkKeysetInfo {
-		tinkKeysetInfo, err := retrieveTinkKeysetInfo(keyID, *getNetwork||*noCache)
+		tinkKeysetInfo, err := retrieveTinkKeysetInfo(keyID, *getNetwork)
 		if err != nil {
 			failureGetKeyMetric(keyID, err)
 			return err

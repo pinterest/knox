@@ -441,40 +441,20 @@ func (c *HTTPClient) getHTTPData(method string, path string, body url.Values, da
 
 // UncachedHTTPClient is a client that uses HTTP to talk to Knox without caching.
 type UncachedHTTPClient struct {
-	// Host is used as the host for http connections
-	Host string
-	//AuthHandler returns the authorization string for authenticating to knox. Users should be prefixed by 0u, machines by 0m. On fail, return empty string.
-	AuthHandler func() string
-	// Client is the http client for making network calls
-	Client HTTP
-	// Version is the current client version, useful for debugging and sent as a header
-	Version string
+	// CachedClient is the normal functional client 
+	CachedClient HTTPClient
 }
 
 // NewClient creates a new uncached client to connect to talk to Knox.
-func NewUncachedClient(host string, client HTTP, authHandler func() string, version string) APIClient {
-	return &HTTPClient{
-		Host:        host,
-		Client:      client,
-		AuthHandler: authHandler,
-		Version:     version,
+func NewUncachedClient(host string, client HTTP, cachedClient HTTPClient, authHandler func() string, version string) APIClient {
+	return &UncachedHTTPClient{
+		CachedClient: cachedClient,
 	}
 }
 
 // NetworkGetKey gets a knox key by keyID and only uses network without the caches.
 func (c *UncachedHTTPClient) NetworkGetKey(keyID string) (*Key, error) {
-	key := &Key{}
-	err := c.getHTTPData("GET", "/v0/keys/"+keyID+"/", nil, key)
-	if err != nil {
-		return nil, err
-	}
-
-	// do not return the invalid format remote keys
-	if key.ID == "" || key.ACL == nil || key.VersionList == nil || key.VersionHash == "" {
-		return nil, fmt.Errorf("invalid key content for the remote key")
-	}
-
-	return key, err
+	return c.CachedClient.NetworkGetKey(keyID)
 }
 
 // CacheGetKey acts same as NetworkGetKey for UncachedHTTPClient.
@@ -494,15 +474,7 @@ func (c *UncachedHTTPClient) CacheGetKeyWithStatus(keyID string, status VersionS
 
 // NetworkGetKeyWithStatus gets a knox key by keyID and given version status (always calls network).
 func (c *UncachedHTTPClient) NetworkGetKeyWithStatus(keyID string, status VersionStatus) (*Key, error) {
-	// If clients need to know
-	s, err := status.MarshalJSON()
-	if err != nil {
-		return nil, err
-	}
-
-	key := &Key{}
-	err = c.getHTTPData("GET", "/v0/keys/"+keyID+"/?status="+string(s), nil, key)
-	return key, err
+	return c.CachedClient.NetworkGetKeyWithStatus(keyID, status)
 }
 
 // GetKeyWithStatus gets a knox key by keyID and status (no cache).
@@ -512,129 +484,45 @@ func (c *UncachedHTTPClient) GetKeyWithStatus(keyID string, status VersionStatus
 
 // CreateKey creates a knox key with given keyID data and ACL.
 func (c *UncachedHTTPClient) CreateKey(keyID string, data []byte, acl ACL) (uint64, error) {
-	var i uint64
-	d := url.Values{}
-	d.Set("id", keyID)
-	d.Set("data", base64.StdEncoding.EncodeToString(data))
-	s, err := json.Marshal(acl)
-	if err != nil {
-		return i, err
-	}
-	d.Set("acl", string(s))
-	err = c.getHTTPData("POST", "/v0/keys/", d, &i)
-	return i, err
+	return c.CachedClient.CreateKey(keyID, data, acl)
 }
 
 // GetKeys gets all Knox (if empty map) or gets all keys in map that do not match key version hash.
 func (c *UncachedHTTPClient) GetKeys(keys map[string]string) ([]string, error) {
-	var l []string
-
-	d := url.Values{}
-	for k, v := range keys {
-		d.Set(k, v)
-	}
-
-	err := c.getHTTPData("GET", "/v0/keys/?"+d.Encode(), nil, &l)
-	return l, err
+	return c.CachedClient.GetKeys(keys)
 }
 
 // DeleteKey deletes a key from Knox.
 func (c UncachedHTTPClient) DeleteKey(keyID string) error {
-	err := c.getHTTPData("DELETE", "/v0/keys/"+keyID+"/", nil, nil)
-	return err
+	return c.CachedClient.DeleteKey(keyID)
 }
 
 // GetACL gets a knox key by keyID.
 func (c *UncachedHTTPClient) GetACL(keyID string) (*ACL, error) {
-	acl := &ACL{}
-	err := c.getHTTPData("GET", "/v0/keys/"+keyID+"/access/", nil, acl)
-	return acl, err
+	return c.CachedClient.GetACL(keyID)
 }
 
 // PutAccess will add an ACL rule to a specific key.
 func (c *UncachedHTTPClient) PutAccess(keyID string, a ...Access) error {
-	d := url.Values{}
-	s, err := json.Marshal(a)
-	if err != nil {
-		return err
-	}
-	d.Set("acl", string(s))
-	err = c.getHTTPData("PUT", "/v0/keys/"+keyID+"/access/", d, nil)
-	return err
+	return c.CachedClient.PutAccess(keyID, a)
 }
 
 // AddVersion adds a key version to a specific key.
 func (c *UncachedHTTPClient) AddVersion(keyID string, data []byte) (uint64, error) {
-	var i uint64
-	d := url.Values{}
-	d.Set("data", base64.StdEncoding.EncodeToString(data))
-	err := c.getHTTPData("POST", "/v0/keys/"+keyID+"/versions/", d, &i)
-	return i, err
+	return c.CachedClient.AddVersion(keyID, data)
 }
 
 // UpdateVersion either promotes or demotes a specific key version.
 func (c *UncachedHTTPClient) UpdateVersion(keyID, versionID string, status VersionStatus) error {
-	d := url.Values{}
-	s, err := status.MarshalJSON()
-	if err != nil {
-		return err
-	}
-	d.Set("status", string(s))
-
-	err = c.getHTTPData("PUT", "/v0/keys/"+keyID+"/versions/"+versionID+"/", d, nil)
-	return err
+	return c.CachedClient.UpdateVersion(keyID, versionID, status)
 }
 
 func (c *UncachedHTTPClient) getClient() (HTTP, error) {
-	if c.Client == nil {
-		c.Client = &http.Client{}
-	}
-	return c.Client, nil
+	return c.CachedClient.getClient()
 }
 
 func (c *UncachedHTTPClient) getHTTPData(method string, path string, body url.Values, data interface{}) error {
-	r, err := http.NewRequest(method, "https://"+c.Host+path, bytes.NewBufferString(body.Encode()))
-
-	if err != nil {
-		return err
-	}
-
-	auth := c.AuthHandler()
-	if auth == "" {
-		return fmt.Errorf("No authentication data given. Use 'knox login' or set KNOX_USER_AUTH or KNOX_MACHINE_AUTH")
-	}
-	// Get user from env variable and machine hostname from elsewhere.
-	r.Header.Set("Authorization", auth)
-	r.Header.Set("User-Agent", fmt.Sprintf("Knox_Client/%s", c.Version))
-
-	if body != nil {
-		r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	}
-
-	cli, err := c.getClient()
-	if err != nil {
-		return err
-	}
-
-	resp := &Response{}
-	resp.Data = data
-	// Contains retry logic if we decode a 500 error.
-	for i := 1; i <= maxRetryAttempts; i++ {
-		err = getHTTPResp(cli, r, resp)
-		if err != nil {
-			return err
-		}
-		if resp.Status != "ok" {
-			if (resp.Code != InternalServerErrorCode) || (i == maxRetryAttempts) {
-				return fmt.Errorf(resp.Message)
-			}
-			time.Sleep(GetBackoffDuration(i))
-		} else {
-			break
-		}
-	}
-
-	return nil
+	return c.CachedClient.getHTTPData(method, path, body, data)
 }
 
 

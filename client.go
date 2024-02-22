@@ -446,7 +446,7 @@ type UncachedHTTPClient struct {
 }
 
 // NewClient creates a new uncached client to connect to talk to Knox.
-func NewUncachedClient(host string, client HTTP, cachedClient HTTPClient, authHandler func() string, version string) APIClient {
+func NewUncachedClient(cachedClient HTTPClient) APIClient {
 	return &UncachedHTTPClient{
 		CachedClient: cachedClient,
 	}

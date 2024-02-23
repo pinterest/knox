@@ -195,26 +195,17 @@ type HTTP interface {
 
 // HTTPClient is a client that uses HTTP to talk to Knox.
 type HTTPClient struct {
-	// Host is used as the host for http connections
-	Host string
-	//AuthHandler returns the authorization string for authenticating to knox. Users should be prefixed by 0u, machines by 0m. On fail, return empty string.
-	AuthHandler func() string
 	// KeyFolder is the location of cached keys on the file system. If empty, does not check for cached keys.
 	KeyFolder string
 	// Client is the http client for making network calls
-	Client HTTP
-	// Version is the current client version, useful for debugging and sent as a header
-	Version string
+	UncachedClient UncachedHTTPClient
 }
 
 // NewClient creates a new client to connect to talk to Knox.
 func NewClient(host string, client HTTP, authHandler func() string, keyFolder, version string) APIClient {
 	return &HTTPClient{
-		Host:        host,
-		Client:      client,
-		AuthHandler: authHandler,
 		KeyFolder:   keyFolder,
-		Version:     version,
+		UncachedClient: NewUncachedClient(host, client, authHandler, version)
 	}
 }
 
@@ -244,18 +235,7 @@ func (c *HTTPClient) CacheGetKey(keyID string) (*Key, error) {
 
 // NetworkGetKey gets a knox key by keyID and only uses network without the caches.
 func (c *HTTPClient) NetworkGetKey(keyID string) (*Key, error) {
-	key := &Key{}
-	err := c.getHTTPData("GET", "/v0/keys/"+keyID+"/", nil, key)
-	if err != nil {
-		return nil, err
-	}
-
-	// do not return the invalid format remote keys
-	if key.ID == "" || key.ACL == nil || key.VersionList == nil || key.VersionHash == "" {
-		return nil, fmt.Errorf("invalid key content for the remote key")
-	}
-
-	return key, err
+	return c.UncachedClient.NetworkGetKey(keyID)
 }
 
 // GetKey gets a knox key by keyID.
@@ -292,14 +272,7 @@ func (c *HTTPClient) CacheGetKeyWithStatus(keyID string, status VersionStatus) (
 // NetworkGetKeyWithStatus gets a knox key by keyID and given version status (always calls network).
 func (c *HTTPClient) NetworkGetKeyWithStatus(keyID string, status VersionStatus) (*Key, error) {
 	// If clients need to know
-	s, err := status.MarshalJSON()
-	if err != nil {
-		return nil, err
-	}
-
-	key := &Key{}
-	err = c.getHTTPData("GET", "/v0/keys/"+keyID+"/?status="+string(s), nil, key)
-	return key, err
+	return c.UncachedClient.NetworkGetKeyWithStatus(keyID, status)
 }
 
 // GetKeyWithStatus gets a knox key by keyID and status (leverages cache).
@@ -313,6 +286,121 @@ func (c *HTTPClient) GetKeyWithStatus(keyID string, status VersionStatus) (*Key,
 
 // CreateKey creates a knox key with given keyID data and ACL.
 func (c *HTTPClient) CreateKey(keyID string, data []byte, acl ACL) (uint64, error) {
+	return c.UncachedClient.CreateKey(keyID, data, acl)
+}
+
+// GetKeys gets all Knox (if empty map) or gets all keys in map that do not match key version hash.
+func (c *HTTPClient) GetKeys(keys map[string]string) ([]string, error) {
+	return c.UncachedClient.GetKeys(keys)
+}
+
+// DeleteKey deletes a key from Knox.
+func (c HTTPClient) DeleteKey(keyID string) error {
+	return c.UncachedClient.DeleteKey(keyID)
+}
+
+// GetACL gets a knox key by keyID.
+func (c *HTTPClient) GetACL(keyID string) (*ACL, error) {
+	return c.UncachedClient.GetACL(keyID)
+}
+
+// PutAccess will add an ACL rule to a specific key.
+func (c *HTTPClient) PutAccess(keyID string, a ...Access) error {
+	return c.UncachedClient.PutAccess(keyID, a)
+}
+
+// AddVersion adds a key version to a specific key.
+func (c *HTTPClient) AddVersion(keyID string, data []byte) (uint64, error) {
+	return c.UncachedClient.AddVersion(keyID, data)
+}
+
+// UpdateVersion either promotes or demotes a specific key version.
+func (c *HTTPClient) UpdateVersion(keyID, versionID string, status VersionStatus) error {
+	return c.UncachedClient.UpdateVersion(keyID, versionID, status)
+}
+
+func (c *HTTPClient) getClient() (HTTP, error) {
+	return c.UncachedClient.getClient()
+}
+
+func (c *HTTPClient) getHTTPData(method string, path string, body url.Values, data interface{}) error {
+	return c.UncachedClient.getHTTPData(method, path, body, data)
+}
+
+
+// UncachedHTTPClient is a client that uses HTTP to talk to Knox without caching.
+type UncachedHTTPClient struct {
+	// Host is used as the host for http connections
+	Host string
+	//AuthHandler returns the authorization string for authenticating to knox. Users should be prefixed by 0u, machines by 0m. On fail, return empty string.
+	AuthHandler func() string
+	// Client is the http client for making network calls
+	Client HTTP
+	// Version is the current client version, useful for debugging and sent as a header
+	Version string
+}
+
+// NewClient creates a new uncached client to connect to talk to Knox.
+func NewUncachedClient(host string, client HTTP, authHandler func() string, version string) APIClient {
+	return &UncachedHTTPClient{
+		Host:        host,
+		Client:      client,
+		AuthHandler: authHandler,
+		Version:     version,
+	}
+}
+
+// NetworkGetKey gets a knox key by keyID and only uses network without the caches.
+func (c *UncachedHTTPClient) NetworkGetKey(keyID string) (*Key, error) {
+	key := &Key{}
+	err := c.getHTTPData("GET", "/v0/keys/"+keyID+"/", nil, key)
+	if err != nil {
+		return nil, err
+	}
+
+	// do not return the invalid format remote keys
+	if key.ID == "" || key.ACL == nil || key.VersionList == nil || key.VersionHash == "" {
+		return nil, fmt.Errorf("invalid key content for the remote key")
+	}
+
+	return key, err
+}
+
+// CacheGetKey acts same as NetworkGetKey for UncachedHTTPClient.
+func (c *UncachedHTTPClient) CacheGetKey(keyID string) (*Key, error) {
+	return c.NetworkGetKey(keyID)
+}
+
+// GetKey gets a knox key by keyID.
+func (c *UncachedHTTPClient) GetKey(keyID string) (*Key, error) {
+		return c.NetworkGetKey(keyID)
+}
+
+// CacheGetKeyWithStatus acts same as NetworkGetKeyWithStatus for UncachedHTTPClient.
+func (c *UncachedHTTPClient) CacheGetKeyWithStatus(keyID string, status VersionStatus) (*Key, error) {
+	return c.NetworkGetKeyWithStatus(keyID, status)
+}
+
+// NetworkGetKeyWithStatus gets a knox key by keyID and given version status (always calls network).
+func (c *UncachedHTTPClient) NetworkGetKeyWithStatus(keyID string, status VersionStatus) (*Key, error) {
+	// If clients need to know
+	s, err := status.MarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+
+	key := &Key{}
+	err = c.getHTTPData("GET", "/v0/keys/"+keyID+"/?status="+string(s), nil, key)
+	return key, err
+}
+
+// GetKeyWithStatus gets a knox key by keyID and status (no cache).
+func (c *UncachedHTTPClient) GetKeyWithStatus(keyID string, status VersionStatus) (*Key, error) {
+		return c.NetworkGetKeyWithStatus(keyID, status)
+}
+
+// CreateKey creates a knox key with given keyID data and ACL.
+func (c *UncachedHTTPClient) CreateKey(keyID string, data []byte, acl ACL) (uint64, error) {
 	var i uint64
 	d := url.Values{}
 	d.Set("id", keyID)
@@ -327,7 +415,7 @@ func (c *HTTPClient) CreateKey(keyID string, data []byte, acl ACL) (uint64, erro
 }
 
 // GetKeys gets all Knox (if empty map) or gets all keys in map that do not match key version hash.
-func (c *HTTPClient) GetKeys(keys map[string]string) ([]string, error) {
+func (c *UncachedHTTPClient) GetKeys(keys map[string]string) ([]string, error) {
 	var l []string
 
 	d := url.Values{}
@@ -340,20 +428,20 @@ func (c *HTTPClient) GetKeys(keys map[string]string) ([]string, error) {
 }
 
 // DeleteKey deletes a key from Knox.
-func (c HTTPClient) DeleteKey(keyID string) error {
+func (c UncachedHTTPClient) DeleteKey(keyID string) error {
 	err := c.getHTTPData("DELETE", "/v0/keys/"+keyID+"/", nil, nil)
 	return err
 }
 
 // GetACL gets a knox key by keyID.
-func (c *HTTPClient) GetACL(keyID string) (*ACL, error) {
+func (c *UncachedHTTPClient) GetACL(keyID string) (*ACL, error) {
 	acl := &ACL{}
 	err := c.getHTTPData("GET", "/v0/keys/"+keyID+"/access/", nil, acl)
 	return acl, err
 }
 
 // PutAccess will add an ACL rule to a specific key.
-func (c *HTTPClient) PutAccess(keyID string, a ...Access) error {
+func (c *UncachedHTTPClient) PutAccess(keyID string, a ...Access) error {
 	d := url.Values{}
 	s, err := json.Marshal(a)
 	if err != nil {
@@ -365,7 +453,7 @@ func (c *HTTPClient) PutAccess(keyID string, a ...Access) error {
 }
 
 // AddVersion adds a key version to a specific key.
-func (c *HTTPClient) AddVersion(keyID string, data []byte) (uint64, error) {
+func (c *UncachedHTTPClient) AddVersion(keyID string, data []byte) (uint64, error) {
 	var i uint64
 	d := url.Values{}
 	d.Set("data", base64.StdEncoding.EncodeToString(data))
@@ -374,7 +462,7 @@ func (c *HTTPClient) AddVersion(keyID string, data []byte) (uint64, error) {
 }
 
 // UpdateVersion either promotes or demotes a specific key version.
-func (c *HTTPClient) UpdateVersion(keyID, versionID string, status VersionStatus) error {
+func (c *UncachedHTTPClient) UpdateVersion(keyID, versionID string, status VersionStatus) error {
 	d := url.Values{}
 	s, err := status.MarshalJSON()
 	if err != nil {
@@ -386,14 +474,14 @@ func (c *HTTPClient) UpdateVersion(keyID, versionID string, status VersionStatus
 	return err
 }
 
-func (c *HTTPClient) getClient() (HTTP, error) {
+func (c *UncachedHTTPClient) getClient() (HTTP, error) {
 	if c.Client == nil {
 		c.Client = &http.Client{}
 	}
 	return c.Client, nil
 }
 
-func (c *HTTPClient) getHTTPData(method string, path string, body url.Values, data interface{}) error {
+func (c *UncachedHTTPClient) getHTTPData(method string, path string, body url.Values, data interface{}) error {
 	r, err := http.NewRequest(method, "https://"+c.Host+path, bytes.NewBufferString(body.Encode()))
 
 	if err != nil {
@@ -436,93 +524,6 @@ func (c *HTTPClient) getHTTPData(method string, path string, body url.Values, da
 	}
 
 	return nil
-}
-
-
-// UncachedHTTPClient is a client that uses HTTP to talk to Knox without caching.
-type UncachedHTTPClient struct {
-	// CachedClient is the normal functional client 
-	CachedClient HTTPClient
-}
-
-// NewClient creates a new uncached client to connect to talk to Knox.
-func NewUncachedClient(cachedClient HTTPClient) APIClient {
-	return &UncachedHTTPClient{
-		CachedClient: cachedClient,
-	}
-}
-
-// NetworkGetKey gets a knox key by keyID and only uses network without the caches.
-func (c *UncachedHTTPClient) NetworkGetKey(keyID string) (*Key, error) {
-	return c.CachedClient.NetworkGetKey(keyID)
-}
-
-// CacheGetKey acts same as NetworkGetKey for UncachedHTTPClient.
-func (c *UncachedHTTPClient) CacheGetKey(keyID string) (*Key, error) {
-	return c.NetworkGetKey(keyID)
-}
-
-// GetKey gets a knox key by keyID.
-func (c *UncachedHTTPClient) GetKey(keyID string) (*Key, error) {
-		return c.NetworkGetKey(keyID)
-}
-
-// CacheGetKeyWithStatus acts same as NetworkGetKeyWithStatus for UncachedHTTPClient.
-func (c *UncachedHTTPClient) CacheGetKeyWithStatus(keyID string, status VersionStatus) (*Key, error) {
-	return c.NetworkGetKeyWithStatus(keyID, status)
-}
-
-// NetworkGetKeyWithStatus gets a knox key by keyID and given version status (always calls network).
-func (c *UncachedHTTPClient) NetworkGetKeyWithStatus(keyID string, status VersionStatus) (*Key, error) {
-	return c.CachedClient.NetworkGetKeyWithStatus(keyID, status)
-}
-
-// GetKeyWithStatus gets a knox key by keyID and status (no cache).
-func (c *UncachedHTTPClient) GetKeyWithStatus(keyID string, status VersionStatus) (*Key, error) {
-		return c.NetworkGetKeyWithStatus(keyID, status)
-}
-
-// CreateKey creates a knox key with given keyID data and ACL.
-func (c *UncachedHTTPClient) CreateKey(keyID string, data []byte, acl ACL) (uint64, error) {
-	return c.CachedClient.CreateKey(keyID, data, acl)
-}
-
-// GetKeys gets all Knox (if empty map) or gets all keys in map that do not match key version hash.
-func (c *UncachedHTTPClient) GetKeys(keys map[string]string) ([]string, error) {
-	return c.CachedClient.GetKeys(keys)
-}
-
-// DeleteKey deletes a key from Knox.
-func (c UncachedHTTPClient) DeleteKey(keyID string) error {
-	return c.CachedClient.DeleteKey(keyID)
-}
-
-// GetACL gets a knox key by keyID.
-func (c *UncachedHTTPClient) GetACL(keyID string) (*ACL, error) {
-	return c.CachedClient.GetACL(keyID)
-}
-
-// PutAccess will add an ACL rule to a specific key.
-func (c *UncachedHTTPClient) PutAccess(keyID string, a ...Access) error {
-	return c.CachedClient.PutAccess(keyID, a)
-}
-
-// AddVersion adds a key version to a specific key.
-func (c *UncachedHTTPClient) AddVersion(keyID string, data []byte) (uint64, error) {
-	return c.CachedClient.AddVersion(keyID, data)
-}
-
-// UpdateVersion either promotes or demotes a specific key version.
-func (c *UncachedHTTPClient) UpdateVersion(keyID, versionID string, status VersionStatus) error {
-	return c.CachedClient.UpdateVersion(keyID, versionID, status)
-}
-
-func (c *UncachedHTTPClient) getClient() (HTTP, error) {
-	return c.CachedClient.getClient()
-}
-
-func (c *UncachedHTTPClient) getHTTPData(method string, path string, body url.Values, data interface{}) error {
-	return c.CachedClient.getHTTPData(method, path, body, data)
 }
 
 

@@ -205,7 +205,7 @@ type HTTPClient struct {
 func NewClient(host string, client HTTP, authHandler func() string, keyFolder, version string) APIClient {
 	return &HTTPClient{
 		KeyFolder:   keyFolder,
-		UncachedClient: NewUncachedClient(host, client, authHandler, version)
+		UncachedClient: NewUncachedClient(host, client, authHandler, version),
 	}
 }
 
@@ -306,7 +306,7 @@ func (c *HTTPClient) GetACL(keyID string) (*ACL, error) {
 
 // PutAccess will add an ACL rule to a specific key.
 func (c *HTTPClient) PutAccess(keyID string, a ...Access) error {
-	return c.UncachedClient.PutAccess(keyID, a)
+	return c.UncachedClient.PutAccess(keyID, a...)
 }
 
 // AddVersion adds a key version to a specific key.
@@ -320,7 +320,10 @@ func (c *HTTPClient) UpdateVersion(keyID, versionID string, status VersionStatus
 }
 
 func (c *HTTPClient) getClient() (HTTP, error) {
-	return c.UncachedClient.getClient()
+	if c.UncachedClient.Client == nil {
+		c.UncachedClient.Client = &http.Client{}
+	}
+	return c.UncachedClient.Client, nil
 }
 
 func (c *HTTPClient) getHTTPData(method string, path string, body url.Values, data interface{}) error {
@@ -341,8 +344,8 @@ type UncachedHTTPClient struct {
 }
 
 // NewClient creates a new uncached client to connect to talk to Knox.
-func NewUncachedClient(host string, client HTTP, authHandler func() string, version string) APIClient {
-	return &UncachedHTTPClient{
+func NewUncachedClient(host string, client HTTP, authHandler func() string, version string) UncachedHTTPClient {
+	return UncachedHTTPClient{
 		Host:        host,
 		Client:      client,
 		AuthHandler: authHandler,
@@ -541,12 +544,14 @@ func getHTTPResp(cli HTTP, r *http.Request, resp *Response) error {
 // MockClient builds a client that ignores certs and talks to the given host.
 func MockClient(host, keyFolder string) *HTTPClient {
 	return &HTTPClient{
-		Host: host,
-		AuthHandler: func() string {
-			return "TESTAUTH"
-		},
 		KeyFolder: keyFolder,
-		Client:    &http.Client{Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}},
-		Version:   "mock",
+		UncachedClient: UncachedHTTPClient{
+			Host: host,
+			AuthHandler: func() string {
+				return "TESTAUTH"
+			},
+			Client:    &http.Client{Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}},
+			Version:   "mock",
+		},
 	}
 }

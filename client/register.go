@@ -57,7 +57,7 @@ func parseTimeout(val string) (time.Duration, error) {
 }
 
 func runRegister(cmd *Command, args []string) *ErrorStatus {
-	if _, ok := cli.(*UncachedHTTPClient); ok {  
+	if _, ok := cli.(*HTTPClient); !ok {  
 		fmt.Println("Cannot Register in No Cache mode")
 		return nil
     }

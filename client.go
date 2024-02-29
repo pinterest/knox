@@ -133,6 +133,15 @@ func NewMock(primary string, active []string) Client {
 	return &fileClient{primary: primary, active: active, keyObject: Key{VersionList: KeyVersionList(kvl)}}
 }
 
+
+// HTTPClient is a client that uses HTTP to talk to Knox.
+type HTTPClient struct {
+	// KeyFolder is the location of cached keys on the file system. If empty, does not check for cached keys.
+	KeyFolder string
+	// Client is the http client for making network calls
+	UncachedClient UncachedHTTPClient
+}
+
 // Register registers the given keyName with knox. If the operation fails, it returns an error.
 func Register(keyID string) ([]byte, error) {
 	var stdout, stderr bytes.Buffer
@@ -191,14 +200,6 @@ type APIClient interface {
 
 type HTTP interface {
 	Do(req *http.Request) (*http.Response, error)
-}
-
-// HTTPClient is a client that uses HTTP to talk to Knox.
-type HTTPClient struct {
-	// KeyFolder is the location of cached keys on the file system. If empty, does not check for cached keys.
-	KeyFolder string
-	// Client is the http client for making network calls
-	UncachedClient UncachedHTTPClient
 }
 
 // NewClient creates a new client to connect to talk to Knox.

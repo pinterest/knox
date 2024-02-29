@@ -4,9 +4,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"path"
+	"reflect"
 	"strconv"
 	"time"
-	"reflect" 
 )
 
 func init() {
@@ -58,10 +58,10 @@ func parseTimeout(val string) (time.Duration, error) {
 }
 
 func runRegister(cmd *Command, args []string) *ErrorStatus {
-	if reflect.TypeOf(cli).Name() == "UncachedHTTPClient" {  
+	if reflect.TypeOf(cli).Name() == "UncachedHTTPClient" {
 		fmt.Println("Cannot Register in No Cache mode")
 		return nil
-    }
+	}
 	timeout, err := parseTimeout(*registerTimeout)
 	if err != nil {
 		return &ErrorStatus{fmt.Errorf("Invalid value for timeout flag: %s", err.Error()), false}

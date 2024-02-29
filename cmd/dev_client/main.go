@@ -116,7 +116,7 @@ func main() {
 	}
 
 	cli := &knox.HTTPClient{
-		KeyFolder:   keyFolder,
+		KeyFolder: keyFolder,
 		UncachedClient: knox.UncachedHTTPClient{
 			Host:        hostname,
 			AuthHandler: authHandler,

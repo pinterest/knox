@@ -204,7 +204,7 @@ type HTTPClient struct {
 // NewClient creates a new client to connect to talk to Knox.
 func NewClient(host string, client HTTP, authHandler func() string, keyFolder, version string) APIClient {
 	return &HTTPClient{
-		KeyFolder:   keyFolder,
+		KeyFolder:      keyFolder,
 		UncachedClient: NewUncachedClient(host, client, authHandler, version),
 	}
 }
@@ -330,7 +330,6 @@ func (c *HTTPClient) getHTTPData(method string, path string, body url.Values, da
 	return c.UncachedClient.getHTTPData(method, path, body, data)
 }
 
-
 // UncachedHTTPClient is a client that uses HTTP to talk to Knox without caching.
 type UncachedHTTPClient struct {
 	// Host is used as the host for http connections
@@ -376,7 +375,7 @@ func (c *UncachedHTTPClient) CacheGetKey(keyID string) (*Key, error) {
 
 // GetKey gets a knox key by keyID.
 func (c *UncachedHTTPClient) GetKey(keyID string) (*Key, error) {
-		return c.NetworkGetKey(keyID)
+	return c.NetworkGetKey(keyID)
 }
 
 // CacheGetKeyWithStatus acts same as NetworkGetKeyWithStatus for UncachedHTTPClient.
@@ -399,7 +398,7 @@ func (c *UncachedHTTPClient) NetworkGetKeyWithStatus(keyID string, status Versio
 
 // GetKeyWithStatus gets a knox key by keyID and status (no cache).
 func (c *UncachedHTTPClient) GetKeyWithStatus(keyID string, status VersionStatus) (*Key, error) {
-		return c.NetworkGetKeyWithStatus(keyID, status)
+	return c.NetworkGetKeyWithStatus(keyID, status)
 }
 
 // CreateKey creates a knox key with given keyID data and ACL.
@@ -529,7 +528,6 @@ func (c *UncachedHTTPClient) getHTTPData(method string, path string, body url.Va
 	return nil
 }
 
-
 func getHTTPResp(cli HTTP, r *http.Request, resp *Response) error {
 	w, err := cli.Do(r)
 	if err != nil {
@@ -550,8 +548,8 @@ func MockClient(host, keyFolder string) *HTTPClient {
 			AuthHandler: func() string {
 				return "TESTAUTH"
 			},
-			Client:    &http.Client{Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}},
-			Version:   "mock",
+			Client:  &http.Client{Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}},
+			Version: "mock",
 		},
 	}
 }

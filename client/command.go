@@ -68,7 +68,8 @@ var clientGetKeyMetrics = func(map[string]string) {}
 func Run(
 	client knox.APIClient,
 	p *VisibilityParams,
-	loginCommand *Command) {
+	loginCommand *Command,
+) {
 
 	cli = client
 	if p != nil {

@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"path"
-	"reflect"
 	"strconv"
 	"time"
 	"github.com/pinterest/knox"

@@ -7,6 +7,7 @@ import (
 	"reflect"
 	"strconv"
 	"time"
+	"github.com/pinterest/knox"
 )
 
 func init() {
@@ -58,7 +59,7 @@ func parseTimeout(val string) (time.Duration, error) {
 }
 
 func runRegister(cmd *Command, args []string) *ErrorStatus {
-	if reflect.TypeOf(cli).Name() == "UncachedHTTPClient" {
+	if _, ok := cli.(*knox.UncachedHTTPClient); ok {
 		fmt.Println("Cannot Register in No Cache mode")
 		return nil
 	}

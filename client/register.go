@@ -3,10 +3,10 @@ package client
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/pinterest/knox"
 	"path"
 	"strconv"
 	"time"
-	"github.com/pinterest/knox"
 )
 
 func init() {

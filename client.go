@@ -198,7 +198,7 @@ type HTTPClient struct {
 	// KeyFolder is the location of cached keys on the file system. If empty, does not check for cached keys.
 	KeyFolder string
 	// Client is the http client for making network calls
-	UncachedClient UncachedHTTPClient
+	UncachedClient* UncachedHTTPClient
 }
 
 // NewClient creates a new client to connect to talk to Knox.
@@ -343,8 +343,8 @@ type UncachedHTTPClient struct {
 }
 
 // NewClient creates a new uncached client to connect to talk to Knox.
-func NewUncachedClient(host string, client HTTP, authHandler func() string, version string) UncachedHTTPClient {
-	return UncachedHTTPClient{
+func NewUncachedClient(host string, client HTTP, authHandler func() string, version string) *UncachedHTTPClient {
+	return &UncachedHTTPClient{
 		Host:        host,
 		Client:      client,
 		AuthHandler: authHandler,
@@ -543,7 +543,7 @@ func getHTTPResp(cli HTTP, r *http.Request, resp *Response) error {
 func MockClient(host, keyFolder string) *HTTPClient {
 	return &HTTPClient{
 		KeyFolder: keyFolder,
-		UncachedClient: UncachedHTTPClient{
+		UncachedClient: &UncachedHTTPClient{
 			Host: host,
 			AuthHandler: func() string {
 				return "TESTAUTH"

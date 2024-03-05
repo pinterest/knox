@@ -116,7 +116,7 @@ func main() {
 	}
 
 	cli := &knox.HTTPClient{
-		KeyFolder: keyFolder,
+		KeyFolder:      keyFolder,
 		UncachedClient: knox.NewUncachedClient(hostname, &http.Client{Transport: &http.Transport{TLSClientConfig: tlsConfig}}, authHandler, ""),
 	}
 

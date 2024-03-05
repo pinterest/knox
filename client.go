@@ -198,7 +198,7 @@ type HTTPClient struct {
 	// KeyFolder is the location of cached keys on the file system. If empty, does not check for cached keys.
 	KeyFolder string
 	// Client is the http client for making network calls
-	UncachedClient* UncachedHTTPClient
+	UncachedClient *UncachedHTTPClient
 }
 
 // NewClient creates a new client to connect to talk to Knox.

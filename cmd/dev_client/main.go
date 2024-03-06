@@ -116,12 +116,8 @@ func main() {
 	}
 
 	cli := &knox.HTTPClient{
-		KeyFolder: keyFolder,
-		UncachedClient: knox.UncachedHTTPClient{
-			Host:        hostname,
-			AuthHandler: authHandler,
-			Client:      &http.Client{Transport: &http.Transport{TLSClientConfig: tlsConfig}},
-		},
+		KeyFolder:      keyFolder,
+		UncachedClient: knox.NewUncachedClient(hostname, &http.Client{Transport: &http.Transport{TLSClientConfig: tlsConfig}}, authHandler, ""),
 	}
 
 	loginCommand := client.NewLoginCommand(clientID, tokenEndpoint, "", "", "", "")

@@ -10,6 +10,10 @@ import (
 	"github.com/pinterest/knox/server/keydb"
 )
 
+const Number1 = "1"
+// I.e. b64encode("1")
+const Number1B64Encoded = "MQ=="
+
 func makeDB() (KeyManager, *keydb.TempDB) {
 	db := &keydb.TempDB{}
 	cryptor := keydb.NewAESGCMCryptor(0, []byte("testtesttesttest"))
@@ -21,7 +25,7 @@ func TestGetKeys(t *testing.T) {
 	m, db := makeDB()
 	u := auth.NewUser("testuser", []string{})
 
-	_, err := postKeysHandler(m, u, map[string]string{"id": "a1", "data": "MQ=="})
+	_, err := postKeysHandler(m, u, map[string]string{"id": "a1", "data": Number1B64Encoded})
 	if err != nil {
 		t.Fatalf("%+v is not nil", err)
 	}
@@ -86,64 +90,154 @@ func TestGetKeys(t *testing.T) {
 
 func TestPostKeys(t *testing.T) {
 	m, db := makeDB()
+
+	// Machine tests
 	machine := auth.NewMachine("MrRoboto")
-	_, err := postKeysHandler(m, machine, map[string]string{"id": "a1", "data": "MQ=="})
+	// Machines cannot create keys
+	_, err := postKeysHandler(m, machine, map[string]string{"id": "a1", "data": Number1B64Encoded})
 	if err == nil {
 		t.Fatal("Expected err")
+	} else if err.Subcode != knox.UnauthorizedCode {
+		t.Fatalf("Expected %v and got %v", knox.UnauthorizedCode, err.Subcode)
+	} else if err.Message != "Must be a user (or SPIFFE if multiple human admins in ACL) to create keys, principal is MrRoboto" {
+		t.Fatalf("Unexpected error message: %v", err.Message)
 	}
 
-	u := auth.NewUser("testuser", []string{})
-
-	_, err = postKeysHandler(m, u, map[string]string{"data": "MQ=="})
+	// Service tests
+	serviceA := auth.NewService("example.com", "serviceA")
+	// ACL JSON but still Invalid
+	_, err = postKeysHandler(m, serviceA, map[string]string{"id": "a1", "data": Number1B64Encoded, "acl": `[{"type":"foo","id":"bar","access":"test"}]`})
 	if err == nil {
 		t.Fatal("Expected err")
+	} else if err.Subcode != knox.BadAclCode {
+		t.Fatalf("Expected %v and got %v", knox.BadAclCode, err.Subcode)
+	} else if err.Message != "json: Invalid AccessType to convert" {
+		t.Fatalf("Unexpected error message: %v", err.Message)
 	}
-
-	_, err = postKeysHandler(m, u, map[string]string{"id": "a1"})
+	// Valid ACL but no human admin
+	_, err = postKeysHandler(m, serviceA, map[string]string{"id": "a1", "data": Number1B64Encoded, "acl": `[{"type":"User","id":"testuser","access":"Write"}, {"type":"Machine","id":"testmachine1","access":"Admin"}]`})
 	if err == nil {
 		t.Fatal("Expected err")
+	} else if err.Subcode != knox.NoMultipleHumanAdminsInAclCode {
+		t.Fatalf("Expected %v and got %v", knox.NoMultipleHumanAdminsInAclCode, err.Subcode)
+	} else if err.Message != "Parameter 'acl' does not have multiple human admins" {
+		t.Fatalf("Unexpected error message: %v", err.Message)
 	}
-
-	_, err = postKeysHandler(m, u, map[string]string{"id": "a1", "data": "MQ==", "acl": "NOTJSON"})
+	// Valid ACL with only 1 human admin
+	_, err = postKeysHandler(m, serviceA, map[string]string{"id": "a0", "data": Number1B64Encoded, "acl": `[{"type":"User","id":"testuser","access":"Admin"}, {"type":"Machine","id":"testmachine1","access":"Admin"}]`})
 	if err == nil {
 		t.Fatal("Expected err")
+	} else if err.Subcode != knox.NoMultipleHumanAdminsInAclCode {
+		t.Fatalf("Expected %v and got %v", knox.NoMultipleHumanAdminsInAclCode, err.Subcode)
+	} else if err.Message != "Parameter 'acl' does not have multiple human admins" {
+		t.Fatalf("Unexpected error message: %v", err.Message)
 	}
-
-	_, err = postKeysHandler(m, u, map[string]string{"id": "a1", "data": "NotBAse64.."})
-	if err == nil {
-		t.Fatal("Expected err")
-	}
-
-	_, err = postKeysHandler(m, u, map[string]string{"id": "a$#", "data": "MQ=="})
-	if err == nil {
-		t.Fatal("Expected err")
-	}
-
-	i, err := postKeysHandler(m, u, map[string]string{"id": "a1", "data": "MQ=="})
+	// Valid ACL with 2 human admins
+	_, err = postKeysHandler(m, serviceA, map[string]string{"id": "a0", "data": Number1B64Encoded, "acl": `[{"type":"User","id":"testuser","access":"Admin"}, {"type":"User","id":"testuser2","access":"Admin"}]`})
 	if err != nil {
 		t.Fatalf("%+v is not nil", err)
 	}
 
-	_, err = postKeysHandler(m, u, map[string]string{"id": "a1", "data": "MQ=="})
+	// User tests
+	testuser := auth.NewUser("testuser", []string{})
+
+	// No id
+	_, err = postKeysHandler(m, testuser, map[string]string{"data": Number1B64Encoded})
 	if err == nil {
 		t.Fatal("Expected err")
+	} else if err.Subcode != knox.NoKeyIDCode {
+		t.Fatalf("Expected %v and got %v", knox.NoKeyIDCode, err.Subcode)
+	} else if err.Message != "Missing parameter 'id'" {
+		t.Fatalf("Unexpected error message: %v", err.Message)
 	}
 
-	_, err = postKeysHandler(m, u, map[string]string{"id": "a1", "data": ""})
+	// No data
+	_, err = postKeysHandler(m, testuser, map[string]string{"id": "a1"})
 	if err == nil {
 		t.Fatal("Expected err")
+	} else if err.Subcode != knox.NoKeyDataCode {
+		t.Fatalf("Expected %v and got %v", knox.NoKeyDataCode, err.Subcode)
+	} else if err.Message != "Missing parameter 'data'" {
+		t.Fatalf("Unexpected error message: %v", err.Message)
 	}
 
-	j, err := postKeysHandler(m, u, map[string]string{"id": "a2", "data": "MQ==", "acl": "[]"})
+	// ACL not JSON
+	_, err = postKeysHandler(m, testuser, map[string]string{"id": "a1", "data": Number1B64Encoded, "acl": "NOTJSON"})
+	if err == nil {
+		t.Fatal("Expected err")
+	} else if err.Subcode != knox.BadAclCode {
+		t.Fatalf("Expected %v and got %v", knox.BadAclCode, err.Subcode)
+	} else if err.Message != "invalid character 'N' looking for beginning of value" {
+		t.Fatalf("Unexpected error message: %v", err.Message)
+	}
+
+	// ACL JSON but still Invalid
+	_, err = postKeysHandler(m, testuser, map[string]string{"id": "a1", "data": Number1B64Encoded, "acl": `[{"type":"foo","id":"bar","access":"test"}]`})
+	if err == nil {
+		t.Fatal("Expected err")
+	} else if err.Subcode != knox.BadAclCode {
+		t.Fatalf("Expected %v and got %v", knox.BadAclCode, err.Subcode)
+	} else if err.Message != "json: Invalid AccessType to convert" {
+		t.Fatalf("Unexpected error message: %v", err.Message)
+	}
+
+	// Base64 decode error on Data
+	_, err = postKeysHandler(m, testuser, map[string]string{"id": "a1", "data": "NotBAse64.."})
+	if err == nil {
+		t.Fatal("Expected err")
+	} else if err.Subcode != knox.BadRequestDataCode {
+		t.Fatalf("Expected %v and got %v", knox.BadRequestDataCode, err.Subcode)
+	} else if err.Message != "illegal base64 data at input byte 9" {
+		t.Fatalf("Unexpected error message: %v", err.Message)
+	}
+
+	// Invalid KeyID
+	_, err = postKeysHandler(m, testuser, map[string]string{"id": "a$#", "data": Number1B64Encoded})
+	if err == nil {
+		t.Fatal("Expected err")
+	} else if err.Subcode != knox.BadKeyFormatCode {
+		t.Fatalf("Expected %v and got %v", knox.BadKeyFormatCode, err.Subcode)
+	} else if err.Message != "KeyID includes unsupported characters a$#" {
+		t.Fatalf("Unexpected error message: %v", err.Message)
+	}
+
+	// Make a1 key
+	a1KeyID, err := postKeysHandler(m, testuser, map[string]string{"id": "a1", "data": Number1B64Encoded})
 	if err != nil {
 		t.Fatalf("%+v is not nil", err)
 	}
 
-	switch q := i.(type) {
+	// Key already exists
+	_, err = postKeysHandler(m, testuser, map[string]string{"id": "a1", "data": Number1B64Encoded})
+	if err == nil {
+		t.Fatal("Expected err")
+	} else if err.Subcode != knox.KeyIdentifierExistsCode {
+		t.Fatalf("Expected %v and got %v", knox.KeyIdentifierExistsCode, err.Subcode)
+	} else if err.Message != "Key a1 already exists" {
+		t.Fatalf("Unexpected error message: %v", err.Message)
+	}
+
+	// Empty data
+	_, err = postKeysHandler(m, testuser, map[string]string{"id": "a1", "data": ""})
+	if err == nil {
+		t.Fatal("Expected err")
+	} else if err.Subcode != knox.NoKeyDataCode {
+		t.Fatalf("Expected %v and got %v", knox.NoKeyDataCode, err.Subcode)
+	} else if err.Message != "Parameter 'data' is empty" {
+		t.Fatalf("Unexpected error message: %v", err.Message)
+	}
+
+	// Make a2 key
+	a2KeyID, err := postKeysHandler(m, testuser, map[string]string{"id": "a2", "data": Number1B64Encoded, "acl": "[]"})
+	if err != nil {
+		t.Fatalf("%+v is not nil", err)
+	}
+
+	switch q := a1KeyID.(type) {
 	default:
 		t.Fatal("Unexpected type of response")
 	case uint64:
-		switch r := j.(type) {
+		switch r := a2KeyID.(type) {
 		default:
 			t.Fatal("Unexpected type of response")
 		case uint64:
@@ -154,9 +248,13 @@ func TestPostKeys(t *testing.T) {
 	}
 
 	db.SetError(fmt.Errorf("Test Error"))
-	_, err = postKeysHandler(m, u, map[string]string{"id": "a3", "data": "MQ=="})
+	_, err = postKeysHandler(m, testuser, map[string]string{"id": "a3", "data": Number1B64Encoded})
 	if err == nil {
 		t.Fatal("Expected err")
+	} else if err.Subcode != knox.InternalServerErrorCode {
+		t.Fatalf("Expected %v and got %v", knox.InternalServerErrorCode, err.Subcode)
+	} else if err.Message != "Test Error" {
+		t.Fatalf("Unexpected error message: %v", err.Message)
 	}
 }
 
@@ -165,7 +263,7 @@ func TestGetKey(t *testing.T) {
 	machine := auth.NewMachine("MrRoboto")
 
 	u := auth.NewUser("testuser", []string{})
-	_, err := postKeysHandler(m, u, map[string]string{"id": "a1", "data": "MQ=="})
+	_, err := postKeysHandler(m, u, map[string]string{"id": "a1", "data": Number1B64Encoded})
 	if err != nil {
 		t.Fatalf("%+v is not nil", err)
 	}
@@ -184,7 +282,7 @@ func TestGetKey(t *testing.T) {
 		if len(k.VersionList) != 1 {
 			t.Fatalf("Expected len to be 1 not %d", len(k.VersionList))
 		}
-		if string(k.VersionList[0].Data) != "1" {
+		if string(k.VersionList[0].Data) != Number1 {
 			t.Fatalf("Expected ID to be a1 not %s", string(k.VersionList[0].Data))
 		}
 	}
@@ -203,7 +301,7 @@ func TestGetKey(t *testing.T) {
 		if len(k.VersionList) != 1 {
 			t.Fatalf("Expected len to be 1 not %d", len(k.VersionList))
 		}
-		if string(k.VersionList[0].Data) != "1" {
+		if string(k.VersionList[0].Data) != Number1 {
 			t.Fatalf("Expected ID to be a1 not %s", string(k.VersionList[0].Data))
 		}
 	}
@@ -222,7 +320,7 @@ func TestGetKey(t *testing.T) {
 		if len(k.VersionList) != 1 {
 			t.Fatalf("Expected len to be 1 not %d", len(k.VersionList))
 		}
-		if string(k.VersionList[0].Data) != "1" {
+		if string(k.VersionList[0].Data) != Number1 {
 			t.Fatalf("Expected ID to be a1 not %s", string(k.VersionList[0].Data))
 		}
 	}
@@ -247,7 +345,7 @@ func TestDeleteKey(t *testing.T) {
 	m, db := makeDB()
 	u := auth.NewUser("testuser", []string{})
 	machine := auth.NewMachine("MrRoboto")
-	_, err := postKeysHandler(m, u, map[string]string{"id": "a1", "data": "MQ=="})
+	_, err := postKeysHandler(m, u, map[string]string{"id": "a1", "data": Number1B64Encoded})
 	if err != nil {
 		t.Fatalf("%+v is not nil", err)
 	}
@@ -289,7 +387,7 @@ func TestGetAccess(t *testing.T) {
 	m, _ := makeDB()
 	u := auth.NewUser("testuser", []string{})
 	machine := auth.NewMachine("MrRoboto")
-	_, err := postKeysHandler(m, u, map[string]string{"id": "a1", "data": "MQ=="})
+	_, err := postKeysHandler(m, u, map[string]string{"id": "a1", "data": Number1B64Encoded})
 	if err != nil {
 		t.Fatalf("%+v is not nil", err)
 	}
@@ -333,7 +431,7 @@ func TestPutAccess(t *testing.T) {
 
 	u := auth.NewUser("testuser", []string{})
 	machine := auth.NewMachine("MrRoboto")
-	_, err := postKeysHandler(m, u, map[string]string{"id": "a1", "data": "MQ=="})
+	_, err := postKeysHandler(m, u, map[string]string{"id": "a1", "data": Number1B64Encoded})
 	if err != nil {
 		t.Fatalf("%+v is not nil", err)
 	}
@@ -399,7 +497,7 @@ func TestLegacyPutAccess(t *testing.T) {
 
 	u := auth.NewUser("testuser", []string{})
 	machine := auth.NewMachine("MrRoboto")
-	_, err := postKeysHandler(m, u, map[string]string{"id": "a1", "data": "MQ=="})
+	_, err := postKeysHandler(m, u, map[string]string{"id": "a1", "data": Number1B64Encoded})
 	if err != nil {
 		t.Fatalf("%+v is not nil", err)
 	}
@@ -463,7 +561,7 @@ func TestPostVersion(t *testing.T) {
 	m, db := makeDB()
 	u := auth.NewUser("testuser", []string{})
 	machine := auth.NewMachine("MrRoboto")
-	j, err := postKeysHandler(m, u, map[string]string{"id": "a1", "data": "MQ=="})
+	j, err := postKeysHandler(m, u, map[string]string{"id": "a1", "data": Number1B64Encoded})
 	if err != nil {
 		t.Fatalf("%+v is not nil", err)
 	}
@@ -525,7 +623,7 @@ func TestPutVersions(t *testing.T) {
 	m, db := makeDB()
 	u := auth.NewUser("testuser", []string{})
 	machine := auth.NewMachine("MrRoboto")
-	i, err := postKeysHandler(m, u, map[string]string{"id": "a1", "data": "MQ=="})
+	i, err := postKeysHandler(m, u, map[string]string{"id": "a1", "data": Number1B64Encoded})
 	if err != nil {
 		t.Fatalf("%+v is not nil", err)
 	}

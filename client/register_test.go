@@ -17,12 +17,12 @@ func TestParseTimeout(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		r, err := parseTimeout(tc.str)
+		timeout, err := parseTimeout(tc.str)
 		if err != nil {
 			t.Errorf("error parsing value %s: %s", tc.str, err)
 			continue
 		}
-		if r != tc.dur {
+		if timeout != tc.dur {
 			t.Errorf("mismatch: %s should parse to %s", tc.str, tc.dur.String())
 		}
 	}

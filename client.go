@@ -536,8 +536,7 @@ func getHTTPResp(cli HTTP, r *http.Request, resp *Response) error {
 	defer w.Body.Close()
 
 	prevRespData := resp.Data
-	decoder := json.NewDecoder(w.Body)
-	err = decoder.Decode(resp)
+	err = json.NewDecoder(w.Body).Decode(resp)
 	if err != nil {
 		return err
 	}

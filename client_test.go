@@ -418,7 +418,7 @@ func TestConcurrentAddVersion(t *testing.T) {
 			resp, err = buildGoodResponse(expected)
 			code = 200
 		case 2:
-			resp, err = buildInternalServerErrorResponse(0)
+			resp, err = buildInternalServerErrorResponse(nil)
 			code = 500
 		case 3:
 			resp, err = buildGoodResponse(expected2)

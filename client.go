@@ -535,8 +535,18 @@ func getHTTPResp(cli HTTP, r *http.Request, resp *Response) error {
 	}
 	defer w.Body.Close()
 
+	prevRespData := resp.Data
 	decoder := json.NewDecoder(w.Body)
-	return decoder.Decode(resp)
+	err = decoder.Decode(resp)
+	if err != nil {
+		return err
+	}
+
+	if resp.Data == nil {
+		resp.Data = prevRespData
+	}
+
+	return nil
 }
 
 // MockClient builds a client that ignores certs and talks to the given host.

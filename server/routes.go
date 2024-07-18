@@ -341,7 +341,7 @@ func putAccessHandler(m KeyManager, principal knox.Principal, parameters map[str
 
 // postVersionHandler creates a new key version. This version is immediately
 // added as an Active key.
-// The route for this handler is PUT /v0/keys/<key_id>/versions/
+// The route for this handler is POST /v0/keys/<key_id>/versions/
 // The principal needs Write access.
 func postVersionHandler(m KeyManager, principal knox.Principal, parameters map[string]string) (interface{}, *HTTPError) {
 

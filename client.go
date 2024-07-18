@@ -535,8 +535,19 @@ func getHTTPResp(cli HTTP, r *http.Request, resp *Response) error {
 	}
 	defer w.Body.Close()
 
-	decoder := json.NewDecoder(w.Body)
-	return decoder.Decode(resp)
+	prevRespData := resp.Data
+	err = json.NewDecoder(w.Body).Decode(resp)
+	if err != nil {
+		return err
+	}
+
+	// NOTE: in case of error, the server may return the data is nil; we must not accept this value but keep
+	//	the other Response values. This is because if it is set to nil, our outpointer writing would fail and do nothing on retry
+	if resp.Data == nil {
+		resp.Data = prevRespData
+	}
+
+	return nil
 }
 
 // MockClient builds a client that ignores certs and talks to the given host.

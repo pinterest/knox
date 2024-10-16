@@ -9,6 +9,7 @@ import (
 	"os/exec"
 	"path"
 	"reflect"
+	"runtime"
 	"sync/atomic"
 	"testing"
 )
@@ -87,11 +88,20 @@ func buildConcurrentServer(code int, a func(r *http.Request) []byte) *httptest.S
 }
 
 func isKnoxDaemonRunning() bool {
-	cmd := exec.Command("pgrep", "knox")
+	if runtime.GOOS != "linux" {
+		return false
+	}
+
+	cmd := exec.Command("systemctl", "is-active", "--quiet", "knox")
+
 	var out bytes.Buffer
 	cmd.Stdout = &out
 	err := cmd.Run()
-	return err == nil
+	if err == nil {
+		return true
+	}
+
+	return false
 }
 
 func TestGetKey(t *testing.T) {

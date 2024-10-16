@@ -1,10 +1,12 @@
 package knox
 
 import (
+	"bytes"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"os/exec"
 	"path"
 	"reflect"
 	"sync/atomic"
@@ -75,13 +77,21 @@ func buildServer(code int, body []byte, a func(r *http.Request)) *httptest.Serve
 	}))
 }
 
-func buildConcurrentServer(code int, t *testing.T, a func(r *http.Request) []byte) *httptest.Server {
+func buildConcurrentServer(code int, a func(r *http.Request) []byte) *httptest.Server {
 	return httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		resp := a(r)
 		w.WriteHeader(code)
 		w.Header().Set("Content-Type", "application/json")
 		w.Write(resp)
 	}))
+}
+
+func isKnoxDaemonRunning() bool {
+	cmd := exec.Command("pgrep", "knox")
+	var out bytes.Buffer
+	cmd.Stdout = &out
+	err := cmd.Run()
+	return err == nil
 }
 
 func TestGetKey(t *testing.T) {
@@ -357,7 +367,7 @@ func TestPutAccess(t *testing.T) {
 
 func TestConcurrentDeletes(t *testing.T) {
 	var ops uint64
-	srv := buildConcurrentServer(200, t, func(r *http.Request) []byte {
+	srv := buildConcurrentServer(200, func(r *http.Request) []byte {
 		if r.Method != "DELETE" {
 			t.Fatalf("%s is not DELETE", r.Method)
 		}
@@ -511,6 +521,10 @@ func TestGetInvalidKeys(t *testing.T) {
 }
 
 func TestNewFileClient(t *testing.T) {
+	if isKnoxDaemonRunning() {
+		t.Skip("Knox daemon is not running, skipping the test.")
+	}
+
 	_, err := NewFileClient("ThisKeyDoesNotExistSoWeExpectAnError")
 	if (err.Error() != "error getting knox key ThisKeyDoesNotExistSoWeExpectAnError. error: exit status 1") && (err.Error() != "error getting knox key ThisKeyDoesNotExistSoWeExpectAnError. error: exec: \"knox\": executable file not found in $PATH") {
 		t.Fatal("Unexpected error", err.Error())

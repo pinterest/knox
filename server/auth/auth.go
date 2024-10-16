@@ -380,6 +380,15 @@ func (u user) GetID() string {
 	return u.ID
 }
 
+func (u user) Raw() []knox.RawPrincipal {
+	return []knox.RawPrincipal{
+		{
+			ID:   u.ID,
+			Type: "user",
+		},
+	}
+}
+
 // Type returns the underlying type of a principal, for logging/debugging purposes.
 func (u user) Type() string {
 	return "user"
@@ -415,6 +424,15 @@ func (m machine) Type() string {
 	return "machine"
 }
 
+func (m machine) Raw() []knox.RawPrincipal {
+	return []knox.RawPrincipal{
+		{
+			ID:   string(m),
+			Type: "machine",
+		},
+	}
+}
+
 // CanAccess determines if a Machine can access an object represented by the ACL
 // with a certain AccessType. It compares Machine hostname and hostname prefix.
 func (m machine) CanAccess(acl knox.ACL, t knox.AccessType) bool {
@@ -448,6 +466,15 @@ func (s service) GetID() string {
 // Type returns the underlying type of a principal, for logging/debugging purposes.
 func (s service) Type() string {
 	return "service"
+}
+
+func (s service) Raw() []knox.RawPrincipal {
+	return []knox.RawPrincipal{
+		{
+			ID:   "spiffe://" + s.domain + "/" + s.id,
+			Type: "service",
+		},
+	}
 }
 
 // CanAccess determines if a Service can access an object represented by the ACL

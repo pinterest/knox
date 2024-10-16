@@ -294,6 +294,13 @@ func AddDefaultAccess(a *knox.Access) {
 	defaultAccess = append(defaultAccess, *a)
 }
 
+var accessCallback func(knox.AccessCallbackInput) bool
+
+// SetAccessCallback adds a callback.
+func SetAccessCallback(callback func(knox.AccessCallbackInput) bool) {
+	accessCallback = callback
+}
+
 // Extra validators to apply on principals submitted to Knox.
 var extraPrincipalValidators []knox.PrincipalValidator
 

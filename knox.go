@@ -508,6 +508,14 @@ type Principal interface {
 	CanAccess(ACL, AccessType) bool
 	GetID() string
 	Type() string
+	Raw() []RawPrincipal
+}
+
+// RawPrincipal is a serializable version of a principal for passing to
+// access callbacks.
+type RawPrincipal struct {
+	ID   string `json:"id"`
+	Type string `json:"type"`
 }
 
 // PrincipalMux provides a Principal Interface over multiple Principals.
@@ -564,6 +572,15 @@ func (p PrincipalMux) Default() Principal {
 	return p.defaultPrincipal
 }
 
+// Raw returns the raw version of all the principals.
+func (p PrincipalMux) Raw() []RawPrincipal {
+	raw := []RawPrincipal{}
+	for _, principal := range p.allPrincipals {
+		raw = append(raw, principal.Raw()...)
+	}
+	return raw
+}
+
 // NewPrincipalMux returns a Principal that represents many principals.
 func NewPrincipalMux(defaultPrincipal Principal, allPrincipals map[string]Principal) Principal {
 	return PrincipalMux{
@@ -598,4 +615,11 @@ type Response struct {
 	Timestamp int64       `json:"ts"`
 	Message   string      `json:"message"`
 	Data      interface{} `json:"data"`
+}
+
+// AccessCallbackInput is the input to the access callback function.
+type AccessCallbackInput struct {
+	Key        Key            `json:"key"`
+	Principals []RawPrincipal `json:"principals"`
+	AccessType AccessType     `json:"access_type"`
 }

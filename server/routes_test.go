@@ -610,83 +610,84 @@ func TestPutVersions(t *testing.T) {
 }
 
 func TestAuthorizeRequest(t *testing.T) {
-	u := auth.NewUser("test", []string{"returntrue"})
-	a1 := knox.Access{ID: "test", AccessType: knox.Read, Type: knox.User}
-
-	key := &knox.Key{
-		ID:  "test",
-		ACL: knox.ACL{a1},
+	type input struct {
+		Key        *knox.Key
+		Principal  knox.Principal
+		AccessType knox.AccessType
 	}
 
-	mockCallbackTrue := func(input knox.AccessCallbackInput) (bool, error) {
-		return true, nil
-	}
-	mockCallbackFalse := func(input knox.AccessCallbackInput) (bool, error) {
-		return false, nil
-	}
-
-	// We will ignore the key's ACL because we are only testing the callback,
-	// which should return true if the AccessType is Write.
-	mockCallbackFalseWithValidInput := func(input knox.AccessCallbackInput) (bool, error) {
-		return input.AccessType == knox.Write && input.Key.ACL[0].ID == "test" && input.Key.ACL[0].Type == knox.User, nil
+	type testCase struct {
+		Name               string
+		Input              input
+		CallBackImpl       func(input knox.AccessCallbackInput) (bool, error)
+		ExpectedAuthorized bool
 	}
 
-	// Mock callback that panics
-	mockCallbackPanic := func(input knox.AccessCallbackInput) (bool, error) {
-		panic("intentional panic")
+	triggerCallBackInput := input{
+		Key:        &knox.Key{ID: "test", ACL: knox.ACL{{ID: "test", AccessType: knox.Read, Type: knox.User}}},
+		Principal:  auth.NewUser("test", []string{"returntrue"}),
+		AccessType: knox.Write,
 	}
 
-	var (
-		authorized bool
-		err        error
-	)
-
-	defer func() {
-		SetAccessCallback(nil) // Resetting the callback
-	}()
-
-	SetAccessCallback(mockCallbackTrue)
-	authorized, err = authorizeRequest(key, u, knox.Write)
-	if err != nil {
-		t.Fatalf("Expected authorizeRequest to return nil error when accessCallback returns true, got %v", err)
-	}
-	if !authorized {
-		t.Fatal("Expected authorizeRequest to return true when accessCallback returns true")
-	}
-
-	SetAccessCallback(mockCallbackFalseWithValidInput)
-	authorized, err = authorizeRequest(key, u, knox.Write)
-	if err != nil {
-		t.Fatalf("Expected authorizeRequest to return nil error when accessCallback returns false with valid input, got %v", err)
-	}
-	if !authorized {
-		t.Fatal("Expected authorizeRequest to return true when accessCallback returns false with valid input")
-	}
-
-	SetAccessCallback(mockCallbackFalse)
-	authorized, err = authorizeRequest(key, u, knox.Write)
-	if err != nil {
-		t.Fatalf("Expected authorizeRequest to return nil error when accessCallback returns false, got %v", err)
-	}
-	if authorized {
-		t.Fatal("Expected authorizeRequest to return false when accessCallback returns false")
-	}
-
-	SetAccessCallback(nil)
-	authorized, err = authorizeRequest(key, u, knox.Write)
-	if err != nil {
-		t.Fatalf("Expected authorizeRequest to return nil error when accessCallback is nil, got %v", err)
-	}
-	if authorized {
-		t.Fatal("Expected authorizeRequest to return false when accessCallback is nil")
+	testCases := []testCase{
+		{
+			Name:  "AccessCallback returns true",
+			Input: triggerCallBackInput,
+			CallBackImpl: func(input knox.AccessCallbackInput) (bool, error) {
+				return true, nil
+			},
+			ExpectedAuthorized: true,
+		},
+		{
+			Name:  "AccessCallback returns false",
+			Input: triggerCallBackInput,
+			CallBackImpl: func(input knox.AccessCallbackInput) (bool, error) {
+				return false, nil
+			},
+			ExpectedAuthorized: false,
+		},
+		{
+			Name:  "AccessCallback returns false with valid input",
+			Input: triggerCallBackInput,
+			CallBackImpl: func(input knox.AccessCallbackInput) (bool, error) {
+				return input.AccessType == knox.Write && input.Key.ACL[0].ID == "test" && input.Key.ACL[0].Type == knox.User, nil
+			},
+			ExpectedAuthorized: true,
+		},
+		{
+			Name:               "AccessCallback is nil",
+			Input:              triggerCallBackInput,
+			CallBackImpl:       nil,
+			ExpectedAuthorized: false,
+		},
+		{
+			Name:  "AccessCallback panics",
+			Input: triggerCallBackInput,
+			CallBackImpl: func(input knox.AccessCallbackInput) (bool, error) {
+				panic("intentional panic")
+			},
+			ExpectedAuthorized: false,
+		},
 	}
 
-	SetAccessCallback(mockCallbackPanic)
-	authorized, err = authorizeRequest(key, u, knox.Write)
-	if err == nil {
-		t.Fatal("Expected authorizeRequest to return error when accessCallback panics")
-	}
-	if authorized {
-		t.Fatal("Expected authorizeRequest to return false when accessCallback panics")
+	for _, tc := range testCases {
+		t.Run(tc.Name, func(t *testing.T) {
+			defer SetAccessCallback(nil)
+
+			SetAccessCallback(tc.CallBackImpl)
+			authorized, err := authorizeRequest(tc.Input.Key, tc.Input.Principal, tc.Input.AccessType)
+			if err != nil {
+				if err.Error() == "Recovered from panic in access callback: intentional panic" {
+					if authorized != tc.ExpectedAuthorized {
+						t.Fatalf("Expected %v, got %v", tc.ExpectedAuthorized, authorized)
+					}
+				} else {
+					t.Fatalf("Got err: %v", err)
+				}
+			}
+			if authorized != tc.ExpectedAuthorized {
+				t.Fatalf("Expected %v, got %v", tc.ExpectedAuthorized, authorized)
+			}
+		})
 	}
 }

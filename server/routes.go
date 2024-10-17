@@ -212,7 +212,12 @@ func getKeyHandler(m KeyManager, principal knox.Principal, parameters map[string
 	}
 
 	// Authorize access to data
-	if !authorizeRequest(key, principal, knox.Read) {
+	authorized, authzErr := authorizeRequest(key, principal, knox.Read)
+	if authzErr != nil {
+		return nil, errF(knox.InternalServerErrorCode, authzErr.Error())
+	}
+
+	if !authorized {
 		return nil, errF(knox.UnauthorizedCode, fmt.Sprintf("Principal %s not authorized to read %s", principal.GetID(), keyID))
 	}
 
@@ -236,7 +241,12 @@ func deleteKeyHandler(m KeyManager, principal knox.Principal, parameters map[str
 	}
 
 	// Authorize
-	if !authorizeRequest(key, principal, knox.Admin) {
+	authorized, authzErr := authorizeRequest(key, principal, knox.Admin)
+	if authzErr != nil {
+		return nil, errF(knox.InternalServerErrorCode, authzErr.Error())
+	}
+
+	if !authorized {
 		return nil, errF(knox.UnauthorizedCode, fmt.Sprintf("Principal %s not authorized to delete %s", principal.GetID(), keyID))
 	}
 
@@ -316,7 +326,12 @@ func putAccessHandler(m KeyManager, principal knox.Principal, parameters map[str
 	}
 
 	// Authorize
-	if !authorizeRequest(key, principal, knox.Admin) {
+	authorized, authzErr := authorizeRequest(key, principal, knox.Admin)
+	if authzErr != nil {
+		return nil, errF(knox.InternalServerErrorCode, authzErr.Error())
+	}
+
+	if !authorized {
 		return nil, errF(knox.UnauthorizedCode, fmt.Sprintf("Principal %s not authorized to update access for %s", principal.GetID(), keyID))
 	}
 
@@ -373,7 +388,12 @@ func postVersionHandler(m KeyManager, principal knox.Principal, parameters map[s
 	}
 
 	// Authorize
-	if !authorizeRequest(key, principal, knox.Write) {
+	authorized, authzErr := authorizeRequest(key, principal, knox.Write)
+	if authzErr != nil {
+		return nil, errF(knox.InternalServerErrorCode, authzErr.Error())
+	}
+
+	if !authorized {
 		return nil, errF(knox.UnauthorizedCode, fmt.Sprintf("Principal %s not authorized to write %s", principal.GetID(), keyID))
 	}
 
@@ -430,7 +450,12 @@ func putVersionsHandler(m KeyManager, principal knox.Principal, parameters map[s
 	}
 
 	// Authorize
-	if !authorizeRequest(key, principal, knox.Write) {
+	authorized, authzErr := authorizeRequest(key, principal, knox.Write)
+	if authzErr != nil {
+		return nil, errF(knox.InternalServerErrorCode, authzErr.Error())
+	}
+
+	if !authorized {
 		return nil, errF(knox.UnauthorizedCode, fmt.Sprintf("Principal %s not authorized to write %s", principal.GetID(), keyID))
 	}
 
@@ -448,26 +473,24 @@ func putVersionsHandler(m KeyManager, principal knox.Principal, parameters map[s
 	}
 }
 
-func authorizeRequest(key *knox.Key, principal knox.Principal, access knox.AccessType) bool {
+func authorizeRequest(key *knox.Key, principal knox.Principal, access knox.AccessType) (allow bool, err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			log.Printf("Recovered from panic in access callback: %v", r)
+
+			err = fmt.Errorf("Recovered from panic in access callback: %v", r)
 		}
 	}()
 
-	if principal.CanAccess(key.ACL, access) {
-		return true
+	allow = principal.CanAccess(key.ACL, access)
+
+	if !allow && accessCallback != nil {
+		allow, err = accessCallback(knox.AccessCallbackInput{
+			Key:        *key,
+			Principals: principal.Raw(),
+			AccessType: access,
+		})
 	}
 
-	input := knox.AccessCallbackInput{
-		Key:        *key,
-		Principals: principal.Raw(),
-		AccessType: access,
-	}
-
-	if accessCallback != nil {
-		return accessCallback(input)
-	}
-
-	return false
+	return
 }

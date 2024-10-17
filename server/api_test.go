@@ -49,8 +49,8 @@ func additionalMockHandler(m KeyManager, principal knox.Principal, parameters ma
 	return "The meaning of life is 42", nil
 }
 
-func mockAccessCallback(input knox.AccessCallbackInput) bool {
-	return true
+func mockAccessCallback(input knox.AccessCallbackInput) (bool, error) {
+	return true, nil
 }
 
 func mockRoute() Route {
@@ -117,7 +117,13 @@ func TestSetAccessCallback(t *testing.T) {
 	if accessCallback == nil {
 		t.Fatal("accessCallback should not be nil")
 	}
-	if !accessCallback(input) {
+
+	canAccess, err := accessCallback(input)
+	if err != nil {
+		t.Fatal("accessCallback should not return an error")
+	}
+
+	if !canAccess {
 		t.Fatal("accessCallback should return true")
 	}
 }

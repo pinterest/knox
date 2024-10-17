@@ -294,10 +294,10 @@ func AddDefaultAccess(a *knox.Access) {
 	defaultAccess = append(defaultAccess, *a)
 }
 
-var accessCallback func(knox.AccessCallbackInput) bool
+var accessCallback func(knox.AccessCallbackInput) (bool, error)
 
 // SetAccessCallback adds a callback.
-func SetAccessCallback(callback func(knox.AccessCallbackInput) bool) {
+func SetAccessCallback(callback func(knox.AccessCallbackInput) (bool, error)) {
 	accessCallback = callback
 }
 

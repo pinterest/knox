@@ -608,3 +608,46 @@ func TestPutVersions(t *testing.T) {
 	}
 
 }
+
+func TestAuthorizeRequest(t *testing.T) {
+	u := auth.NewUser("test", []string{"returntrue"})
+	a1 := knox.Access{ID: "test", AccessType: knox.Read, Type: knox.User}
+
+	key := &knox.Key{
+		ID:  "test",
+		ACL: knox.ACL{a1},
+	}
+
+	mockCallbackTrue := func(input knox.AccessCallbackInput) bool {
+		return true
+	}
+	mockCallbackFalse := func(input knox.AccessCallbackInput) bool {
+		return false
+	}
+
+	// We will ignore the key's ACL because we are only testing the callback,
+	// which should return true if the AccessType is Write.
+	mockCallbackFalseWithValidInput := func(input knox.AccessCallbackInput) bool {
+		return input.AccessType == knox.Write && input.Key.ACL[0].ID == "test" && input.Key.ACL[0].Type == knox.User
+	}
+
+	SetAccessCallback(mockCallbackTrue)
+	if !authorizeRequest(key, u, knox.Write) {
+		t.Fatal("Expected authorizeRequest to return true when accessCallback returns true")
+	}
+
+	SetAccessCallback(mockCallbackFalseWithValidInput)
+	if !authorizeRequest(key, u, knox.Write) {
+		t.Fatal("Expected authorizeRequest to return true when accessCallback returns false with valid input")
+	}
+
+	SetAccessCallback(mockCallbackFalse)
+	if authorizeRequest(key, u, knox.Write) {
+		t.Fatal("Expected authorizeRequest to return false when accessCallback returns false")
+	}
+
+	SetAccessCallback(nil)
+	if authorizeRequest(key, u, knox.Write) {
+		t.Fatal("Expected authorizeRequest to return false when accessCallback is nil")
+	}
+}

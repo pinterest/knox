@@ -8,6 +8,7 @@ import (
 	"strconv"
 
 	"github.com/pinterest/knox"
+	"github.com/pinterest/knox/log"
 	"github.com/pinterest/knox/server/auth"
 )
 
@@ -448,6 +449,12 @@ func putVersionsHandler(m KeyManager, principal knox.Principal, parameters map[s
 }
 
 func authorizeRequest(key *knox.Key, principal knox.Principal, access knox.AccessType) bool {
+	defer func() {
+		if r := recover(); r != nil {
+			log.Printf("Recovered from panic in access callback: %v", r)
+		}
+	}()
+
 	if principal.CanAccess(key.ACL, access) {
 		return true
 	}

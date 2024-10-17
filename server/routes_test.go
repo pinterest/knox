@@ -621,6 +621,7 @@ func TestAuthorizeRequest(t *testing.T) {
 		Input              input
 		CallBackImpl       func(input knox.AccessCallbackInput) (bool, error)
 		ExpectedAuthorized bool
+		ExpectedError      error
 	}
 
 	triggerCallBackInput := input{
@@ -637,6 +638,7 @@ func TestAuthorizeRequest(t *testing.T) {
 				return true, nil
 			},
 			ExpectedAuthorized: true,
+			ExpectedError:      nil,
 		},
 		{
 			Name:  "AccessCallback returns false",
@@ -645,6 +647,7 @@ func TestAuthorizeRequest(t *testing.T) {
 				return false, nil
 			},
 			ExpectedAuthorized: false,
+			ExpectedError:      nil,
 		},
 		{
 			Name:  "AccessCallback returns false with valid input",
@@ -653,12 +656,14 @@ func TestAuthorizeRequest(t *testing.T) {
 				return input.AccessType == knox.Write && input.Key.ACL[0].ID == "test" && input.Key.ACL[0].Type == knox.User, nil
 			},
 			ExpectedAuthorized: true,
+			ExpectedError:      nil,
 		},
 		{
 			Name:               "AccessCallback is nil",
 			Input:              triggerCallBackInput,
 			CallBackImpl:       nil,
 			ExpectedAuthorized: false,
+			ExpectedError:      nil,
 		},
 		{
 			Name:  "AccessCallback panics",
@@ -667,6 +672,7 @@ func TestAuthorizeRequest(t *testing.T) {
 				panic("intentional panic")
 			},
 			ExpectedAuthorized: false,
+			ExpectedError:      fmt.Errorf("Recovered from panic in access callback: intentional panic"),
 		},
 	}
 
@@ -677,7 +683,7 @@ func TestAuthorizeRequest(t *testing.T) {
 			SetAccessCallback(tc.CallBackImpl)
 			authorized, err := authorizeRequest(tc.Input.Key, tc.Input.Principal, tc.Input.AccessType)
 			if err != nil {
-				if err.Error() == "Recovered from panic in access callback: intentional panic" {
+				if err.Error() == tc.ExpectedError.Error() {
 					if authorized != tc.ExpectedAuthorized {
 						t.Fatalf("Expected %v, got %v", tc.ExpectedAuthorized, authorized)
 					}

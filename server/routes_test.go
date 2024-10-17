@@ -631,6 +631,11 @@ func TestAuthorizeRequest(t *testing.T) {
 		return input.AccessType == knox.Write && input.Key.ACL[0].ID == "test" && input.Key.ACL[0].Type == knox.User
 	}
 
+	// Mock callback that panics
+	mockCallbackPanic := func(input knox.AccessCallbackInput) bool {
+		panic("intentional panic")
+	}
+
 	SetAccessCallback(mockCallbackTrue)
 	if !authorizeRequest(key, u, knox.Write) {
 		t.Fatal("Expected authorizeRequest to return true when accessCallback returns true")
@@ -649,5 +654,10 @@ func TestAuthorizeRequest(t *testing.T) {
 	SetAccessCallback(nil)
 	if authorizeRequest(key, u, knox.Write) {
 		t.Fatal("Expected authorizeRequest to return false when accessCallback is nil")
+	}
+
+	SetAccessCallback(mockCallbackPanic)
+	if authorizeRequest(key, u, knox.Write) {
+		t.Fatal("Expected authorizeRequest to return false when accessCallback panics")
 	}
 }

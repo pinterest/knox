@@ -383,8 +383,8 @@ func (u user) GetID() string {
 func (u user) Raw() []knox.RawPrincipal {
 	return []knox.RawPrincipal{
 		{
-			ID:   u.ID,
-			Type: "user",
+			ID:   u.GetID(),
+			Type: u.Type(),
 		},
 	}
 }
@@ -427,8 +427,8 @@ func (m machine) Type() string {
 func (m machine) Raw() []knox.RawPrincipal {
 	return []knox.RawPrincipal{
 		{
-			ID:   string(m),
-			Type: "machine",
+			ID:   m.GetID(),
+			Type: m.Type(),
 		},
 	}
 }
@@ -471,8 +471,8 @@ func (s service) Type() string {
 func (s service) Raw() []knox.RawPrincipal {
 	return []knox.RawPrincipal{
 		{
-			ID:   "spiffe://" + s.domain + "/" + s.id,
-			Type: "service",
+			ID:   s.GetID(),
+			Type: s.Type(),
 		},
 	}
 }

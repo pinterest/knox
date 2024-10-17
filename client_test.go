@@ -532,7 +532,7 @@ func TestGetInvalidKeys(t *testing.T) {
 
 func TestNewFileClient(t *testing.T) {
 	if isKnoxDaemonRunning() {
-		t.Skip("Knox daemon is not running, skipping the test.")
+		t.Skip("Knox daemon is running, skipping the test.")
 	}
 
 	_, err := NewFileClient("ThisKeyDoesNotExistSoWeExpectAnError")

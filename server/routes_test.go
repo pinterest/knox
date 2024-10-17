@@ -641,6 +641,10 @@ func TestAuthorizeRequest(t *testing.T) {
 		err        error
 	)
 
+	defer func() {
+		SetAccessCallback(nil) // Resetting the callback
+	}()
+
 	SetAccessCallback(mockCallbackTrue)
 	authorized, err = authorizeRequest(key, u, knox.Write)
 	if err != nil {

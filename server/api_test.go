@@ -110,6 +110,10 @@ func TestAddDefaultAccess(t *testing.T) {
 }
 
 func TestSetAccessCallback(t *testing.T) {
+	defer func() {
+		SetAccessCallback(nil) // Resetting the callback
+	}()
+
 	SetAccessCallback(mockAccessCallback)
 
 	input := knox.AccessCallbackInput{}

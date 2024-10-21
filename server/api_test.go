@@ -49,6 +49,10 @@ func additionalMockHandler(m KeyManager, principal knox.Principal, parameters ma
 	return "The meaning of life is 42", nil
 }
 
+func mockAccessCallback(input knox.AccessCallbackInput) (bool, error) {
+	return true, nil
+}
+
 func mockRoute() Route {
 	return Route{
 		Method:     "GET",
@@ -103,6 +107,27 @@ func TestAddDefaultAccess(t *testing.T) {
 	}
 	defaultAccess = []knox.Access{}
 
+}
+
+func TestSetAccessCallback(t *testing.T) {
+	defer SetAccessCallback(nil)
+
+	SetAccessCallback(mockAccessCallback)
+
+	input := knox.AccessCallbackInput{}
+
+	if accessCallback == nil {
+		t.Fatal("accessCallback should not be nil")
+	}
+
+	canAccess, err := accessCallback(input)
+	if err != nil {
+		t.Fatal("accessCallback should not return an error")
+	}
+
+	if !canAccess {
+		t.Fatal("accessCallback should return true")
+	}
 }
 
 func TestParseFormParameter(t *testing.T) {

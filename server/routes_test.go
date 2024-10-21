@@ -608,3 +608,92 @@ func TestPutVersions(t *testing.T) {
 	}
 
 }
+
+func TestAuthorizeRequest(t *testing.T) {
+	type input struct {
+		Key        *knox.Key
+		Principal  knox.Principal
+		AccessType knox.AccessType
+	}
+
+	type testCase struct {
+		Name               string
+		Input              input
+		CallBackImpl       func(input knox.AccessCallbackInput) (bool, error)
+		ExpectedAuthorized bool
+		ExpectedError      error
+	}
+
+	triggerCallBackInput := input{
+		Key:        &knox.Key{ID: "test", ACL: knox.ACL{{ID: "test", AccessType: knox.Read, Type: knox.User}}},
+		Principal:  auth.NewUser("test", []string{"returntrue"}),
+		AccessType: knox.Write,
+	}
+
+	testCases := []testCase{
+		{
+			Name:  "AccessCallback returns true",
+			Input: triggerCallBackInput,
+			CallBackImpl: func(input knox.AccessCallbackInput) (bool, error) {
+				return true, nil
+			},
+			ExpectedAuthorized: true,
+			ExpectedError:      nil,
+		},
+		{
+			Name:  "AccessCallback returns false",
+			Input: triggerCallBackInput,
+			CallBackImpl: func(input knox.AccessCallbackInput) (bool, error) {
+				return false, nil
+			},
+			ExpectedAuthorized: false,
+			ExpectedError:      nil,
+		},
+		{
+			Name:  "AccessCallback returns false with valid input",
+			Input: triggerCallBackInput,
+			CallBackImpl: func(input knox.AccessCallbackInput) (bool, error) {
+				return input.AccessType == knox.Write && input.Key.ACL[0].ID == "test" && input.Key.ACL[0].Type == knox.User, nil
+			},
+			ExpectedAuthorized: true,
+			ExpectedError:      nil,
+		},
+		{
+			Name:               "AccessCallback is nil",
+			Input:              triggerCallBackInput,
+			CallBackImpl:       nil,
+			ExpectedAuthorized: false,
+			ExpectedError:      nil,
+		},
+		{
+			Name:  "AccessCallback panics",
+			Input: triggerCallBackInput,
+			CallBackImpl: func(input knox.AccessCallbackInput) (bool, error) {
+				panic("intentional panic")
+			},
+			ExpectedAuthorized: false,
+			ExpectedError:      fmt.Errorf("Recovered from panic in access callback: intentional panic"),
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.Name, func(t *testing.T) {
+			defer SetAccessCallback(nil)
+
+			SetAccessCallback(tc.CallBackImpl)
+			authorized, err := authorizeRequest(tc.Input.Key, tc.Input.Principal, tc.Input.AccessType)
+			if err != nil {
+				if err.Error() == tc.ExpectedError.Error() {
+					if authorized != tc.ExpectedAuthorized {
+						t.Fatalf("Expected %v, got %v", tc.ExpectedAuthorized, authorized)
+					}
+				} else {
+					t.Fatalf("Got err: %v", err)
+				}
+			}
+			if authorized != tc.ExpectedAuthorized {
+				t.Fatalf("Expected %v, got %v", tc.ExpectedAuthorized, authorized)
+			}
+		})
+	}
+}

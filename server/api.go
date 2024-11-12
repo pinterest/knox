@@ -55,16 +55,12 @@ func combine(f, g func(http.HandlerFunc) http.HandlerFunc) func(http.HandlerFunc
 	}
 }
 
-// GetRouter creates the mux router that serves knox routes.
-// All routes are declared in this file. Each handler itself takes in the db and
-// auth provider interfaces and returns a handler that the is processed through
-// the API Middleware.
-func GetRouter(
+// GetRouterFromKeyManager creates the mux router that serves knox routes from a key manager
+func GetRouterFromKeyManager(
 	cryptor keydb.Cryptor,
-	db keydb.DB,
+	keyManager KeyManager,
 	decorators [](func(http.HandlerFunc) http.HandlerFunc),
 	additionalRoutes []Route) (*mux.Router, error) {
-
 	existingRouteIds := map[string]Route{}
 	existingRouteMethodAndPaths := map[string]map[string]Route{}
 	allRoutes := append(routes[:], additionalRoutes[:]...)
@@ -103,14 +99,26 @@ func GetRouter(
 		decorator = combine(decorators[j], decorator)
 	}
 
-	m := NewKeyManager(cryptor, db)
-
-	r.NotFoundHandler = setupRoute("404", m)(decorator(WriteErr(errF(knox.NotFoundCode, ""))))
+	r.NotFoundHandler = setupRoute("404", keyManager)(decorator(WriteErr(errF(knox.NotFoundCode, ""))))
 
 	for _, route := range allRoutes {
-		addRoute(r, route, decorator, m)
+		addRoute(r, route, decorator, keyManager)
 	}
 	return r, nil
+}
+
+// GetRouter creates the mux router that serves knox routes.
+// All routes are declared in this file. Each handler itself takes in the db and
+// auth provider interfaces and returns a handler that the is processed through
+// the API Middleware.
+func GetRouter(
+	cryptor keydb.Cryptor,
+	db keydb.DB,
+	decorators [](func(http.HandlerFunc) http.HandlerFunc),
+	additionalRoutes []Route) (*mux.Router, error) {
+	m := NewKeyManager(cryptor, db)
+
+	return GetRouterFromKeyManager(cryptor, m, decorators, additionalRoutes)
 }
 
 func addRoute(

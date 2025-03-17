@@ -13,7 +13,7 @@ func init() {
 }
 
 var cmdUpdateAccess = &Command{
-	UsageLine: "access (-acl <file> <key_identifier> | {-n|-r|-w|-a} {-M|-U|-G|-P} <key_identifier> <principal>)",
+	UsageLine: "access (-acl <file> <key_identifier> | {-n|-r|-w|-a} {-M|-U|-G|-P|-S|-N} <key_identifier> <principal>)",
 	Short:     "access modifies the acl of a key",
 	Long: `
 Access will add or change the acl on a key by adding a specific access control rule.

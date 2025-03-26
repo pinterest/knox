@@ -139,10 +139,29 @@ func getKeysHandler(m KeyManager, principal knox.Principal, parameters map[strin
 // The route for this handler is POST /v0/keys/
 // The postKeysHandler must be a User.
 func postKeysHandler(m KeyManager, principal knox.Principal, parameters map[string]string) (interface{}, *HTTPError) {
+	var err error
+	aclStr, aclOK := parameters["acl"]
 
-	// Authorize
-	if !auth.IsUser(principal) {
-		return nil, errF(knox.UnauthorizedCode, fmt.Sprintf("Must be a user to create keys, principal is %s", principal.GetID()))
+	acl := make(knox.ACL, 0)
+	if aclOK {
+		jsonErr := json.Unmarshal([]byte(aclStr), &acl)
+		if jsonErr != nil {
+			return nil, errF(knox.BadAclCode, jsonErr.Error())
+		}
+	}
+
+	// Only users -- and SPIFFEs when at latest 2 human users/groups are admins in the ACL -- can create keys
+	if auth.IsService(principal) {
+		err = acl.Validate()
+		if err != nil {
+			return nil, errF(knox.BadAclCode, "Error validating parameter 'acl'")
+		}
+		err = acl.ValidateHasMultipleHumanAdmins()
+		if err != nil {
+			return nil, errF(knox.NoMultipleHumanAdminsInAclCode, "Parameter 'acl' does not have multiple human admins")
+		}
+	} else if !auth.IsUser(principal) {
+		return nil, errF(knox.UnauthorizedCode, fmt.Sprintf("Must be a user (or SPIFFE if multiple human admins in ACL) to create keys, principal is %s", principal.GetID()))
 	}
 
 	keyID, keyIDOK := parameters["id"]
@@ -156,15 +175,6 @@ func postKeysHandler(m KeyManager, principal knox.Principal, parameters map[stri
 	if data == "" {
 		return nil, errF(knox.NoKeyDataCode, "Parameter 'data' is empty")
 	}
-	aclStr, aclOK := parameters["acl"]
-
-	acl := make(knox.ACL, 0)
-	if aclOK {
-		jsonErr := json.Unmarshal([]byte(aclStr), &acl)
-		if jsonErr != nil {
-			return nil, errF(knox.BadRequestDataCode, jsonErr.Error())
-		}
-	}
 
 	decodedData, decodeErr := base64.StdEncoding.DecodeString(data)
 	if decodeErr != nil {
@@ -173,7 +183,7 @@ func postKeysHandler(m KeyManager, principal knox.Principal, parameters map[stri
 
 	// Create and add new key
 	key := newKey(keyID, acl, decodedData, principal)
-	err := m.AddNewKey(&key)
+	err = m.AddNewKey(&key)
 	if err != nil {
 		if err == knox.ErrKeyExists {
 			return nil, errF(knox.KeyIdentifierExistsCode, fmt.Sprintf("Key %s already exists", keyID))

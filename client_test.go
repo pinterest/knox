@@ -14,6 +14,10 @@ import (
 	"testing"
 )
 
+var DataBytes = []byte("data")
+// I.e. b64encode("data")
+const DataB64Encoded = "ZGF0YQ=="
+
 func TestMockClient(t *testing.T) {
 	p := "primary"
 	a := []string{"active1", "active2"}
@@ -201,8 +205,8 @@ func TestCreateKey(t *testing.T) {
 			t.Fatalf("%s is not %s", r.URL.Path, "/v0/keys/")
 		}
 		r.ParseForm()
-		if r.PostForm["data"][0] != "ZGF0YQ==" {
-			t.Fatalf("%s is not expected: %s", r.PostForm["data"][0], "ZGF0YQ==")
+		if r.PostForm["data"][0] != DataB64Encoded {
+			t.Fatalf("%s is not expected: %s", r.PostForm["data"][0], DataB64Encoded)
 		}
 		if r.PostForm["id"][0] != "testkey" {
 			t.Fatalf("%s is not expected: %s", r.PostForm["id"][0], "testkey")
@@ -215,7 +219,19 @@ func TestCreateKey(t *testing.T) {
 
 	cli := MockClient(srv.Listener.Addr().String(), "")
 
-	acl := ACL([]Access{
+	aclWithMultipleUserAdmins := ACL([]Access{
+		{
+			Type:       User,
+			AccessType: Admin,
+			ID:         "test",
+		},
+		{
+			Type:       User,
+			AccessType: Admin,
+			ID:         "test2",
+		},
+	})
+	aclWithUserRead := ACL([]Access{
 		{
 			Type:       User,
 			AccessType: Read,
@@ -223,19 +239,40 @@ func TestCreateKey(t *testing.T) {
 		},
 	})
 
-	badACL := ACL([]Access{
+	invalidTypeACL := ACL([]Access{
 		{
-			Type:       233,
-			AccessType: 80927,
+			Type:       233,  // Not a principal
+			AccessType: Read,
 			ID:         "test",
 		},
 	})
-	_, err = cli.CreateKey("testkey", []byte("data"), badACL)
-	if err == nil {
-		t.Fatal("error is nil")
+	_, err = cli.CreateKey("testkey", DataBytes, invalidTypeACL)
+	if err.Error() != "json: error calling MarshalJSON for type knox.PrincipalType: json: Invalid PrincipalType to convert" {
+		t.Fatalf("Expected err is %v", err)
 	}
 
-	k, err := cli.CreateKey("testkey", []byte("data"), acl)
+	invalidAccessTypeACL := ACL([]Access{
+		{
+			Type:       User,
+			AccessType: 80927, // Not an access type
+			ID:         "test",
+		},
+	})
+	_, err = cli.CreateKey("testkey", DataBytes, invalidAccessTypeACL)
+	if err.Error() != "json: error calling MarshalJSON for type knox.AccessType: json: Invalid AccessType to convert" {
+		t.Fatalf("Expected err is %v", err)
+	}
+
+	// Note: In `client/create.go` and `server/routes.go`, acl.ValidateHasMultipleHumanAdmins() would be called, but not in `client.go`
+	k, err := cli.CreateKey("testkey", DataBytes, aclWithUserRead)
+	if err != nil {
+		t.Fatalf("%s is not nil", err)
+	}
+	if k != expected {
+		t.Fatalf("%d is not %d", k, expected)
+	}
+
+	k, err = cli.CreateKey("testkey", DataBytes, aclWithMultipleUserAdmins)
 	if err != nil {
 		t.Fatalf("%s is not nil", err)
 	}
@@ -258,15 +295,15 @@ func TestAddVersion(t *testing.T) {
 			t.Fatalf("%s is not %s", r.URL.Path, "/v0/keys/testkey/versions/")
 		}
 		r.ParseForm()
-		if r.PostForm["data"][0] != "ZGF0YQ==" {
-			t.Fatalf("%s is not expected: %s", r.PostForm["data"][0], "ZGF0YQ==")
+		if r.PostForm["data"][0] != DataB64Encoded {
+			t.Fatalf("%s is not expected: %s", r.PostForm["data"][0], DataB64Encoded)
 		}
 	})
 	defer srv.Close()
 
 	cli := MockClient(srv.Listener.Addr().String(), "")
 
-	k, err := cli.AddVersion("testkey", []byte("data"))
+	k, err := cli.AddVersion("testkey", DataBytes)
 	if err != nil {
 		t.Fatalf("%s is not nil", err)
 	}

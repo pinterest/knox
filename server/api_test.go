@@ -232,6 +232,7 @@ func TestNewKey(t *testing.T) {
 	uid := "testuser"
 	acl := knox.ACL([]knox.Access{{ID: "testmachine", AccessType: knox.Admin, Type: knox.Machine}})
 	data := []byte("testdata")
+	// User principal tests
 	u := auth.NewUser(uid, []string{})
 	key := newKey(id, acl, data, u)
 	if key.ID != id {
@@ -241,12 +242,37 @@ func TestNewKey(t *testing.T) {
 		t.Fatal("data does not match: " + string(key.VersionList[0].Data) + "!=" + string(data))
 	}
 	if !u.CanAccess(key.ACL, knox.Admin) {
-		t.Fatal("creator does not have access to his key")
+		t.Fatal("User creator should have access to his key")
 	}
+
+	// 2 because ACL + creatorAccess
 	if len(key.ACL) != len(defaultAccess)+2 {
 		text, _ := json.Marshal(key.ACL)
-		t.Fatal("The Key's ACL is too big: " + string(text))
+		t.Fatal("The Key's ACL has unexpected length: " + string(text))
 	}
+
+	// Service principal tests
+	s := auth.NewService("example.com", "serviceA")
+	key = newKey(id, acl, data, s)
+	if key.ID != id {
+		t.Fatal("ID does not match: " + key.ID + "!=" + id)
+	}
+	if len(key.VersionList) != 1 || !bytes.Equal(key.VersionList[0].Data, data) {
+		t.Fatal("data does not match: " + string(key.VersionList[0].Data) + "!=" + string(data))
+	}
+	if s.CanAccess(key.ACL, knox.Admin) {
+		t.Fatal("Service creator should not have access to his key")
+	}
+
+	// 1 because only ACL and no creatorAccess
+	if len(key.ACL) != len(defaultAccess)+1 {
+		text, err := json.Marshal(key.ACL)
+		if err != nil {
+			t.Fatal("Error is: " + err.Error())
+		}
+		t.Fatal("The Key's ACL has unexpected length: " + string(text))
+	}
+
 
 }
 

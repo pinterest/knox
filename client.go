@@ -26,6 +26,10 @@ const baseBackoff = 50 * time.Millisecond
 const maxBackoff = 3 * time.Second
 const maxRetryAttempts = 3
 
+var (
+	errNoAuth = errors.New("No authentication data given. Use 'knox login' or set KNOX_USER_AUTH or KNOX_MACHINE_AUTH")
+)
+
 // Client is an interface for interacting with a specific knox key
 type Client interface {
 	// GetPrimary returns the primary key version for the knox key.
@@ -201,11 +205,14 @@ type HTTPClient struct {
 	UncachedClient *UncachedHTTPClient
 }
 
+type AuthHandler func() string
+
 // NewClient creates a new client to connect to talk to Knox.
-func NewClient(host string, client HTTP, authHandler func() string, keyFolder, version string) APIClient {
+// NOTE: passing multiple authHandlers can cause severe performance issues, use with caution.
+func NewClient(host string, client HTTP, authHandlers []AuthHandler, keyFolder, version string) APIClient {
 	return &HTTPClient{
 		KeyFolder:      keyFolder,
-		UncachedClient: NewUncachedClient(host, client, authHandler, version),
+		UncachedClient: NewUncachedClient(host, client, authHandlers, version),
 	}
 }
 
@@ -334,21 +341,22 @@ func (c *HTTPClient) getHTTPData(method string, path string, body url.Values, da
 type UncachedHTTPClient struct {
 	// Host is used as the host for http connections
 	Host string
-	//AuthHandler returns the authorization string for authenticating to knox. Users should be prefixed by 0u, machines by 0m. On fail, return empty string.
-	AuthHandler func() string
+	//AuthHandlers contains a list of auth handlers which return the authorization string for authenticating to knox. Users should be prefixed by 0u, machines by 0m. On fail, return empty string.
+	AuthHandlers []AuthHandler
 	// Client is the http client for making network calls
 	Client HTTP
 	// Version is the current client version, useful for debugging and sent as a header
 	Version string
 }
 
-// NewClient creates a new uncached client to connect to talk to Knox.
-func NewUncachedClient(host string, client HTTP, authHandler func() string, version string) *UncachedHTTPClient {
+// NewUncachedClient creates a new uncached client to connect to talk to Knox.
+// NOTE: passing multiple authHandlers can cause severe performance issues, use with caution.
+func NewUncachedClient(host string, client HTTP, authHandlers []AuthHandler, version string) *UncachedHTTPClient {
 	return &UncachedHTTPClient{
-		Host:        host,
-		Client:      client,
-		AuthHandler: authHandler,
-		Version:     version,
+		Host:         host,
+		Client:       client,
+		AuthHandlers: authHandlers,
+		Version:      version,
 	}
 }
 
@@ -485,44 +493,68 @@ func (c *UncachedHTTPClient) getClient() (HTTP, error) {
 
 func (c *UncachedHTTPClient) getHTTPData(method string, path string, body url.Values, data interface{}) error {
 	r, err := http.NewRequest(method, "https://"+c.Host+path, bytes.NewBufferString(body.Encode()))
-
 	if err != nil {
 		return err
 	}
 
-	auth := c.AuthHandler()
-	if auth == "" {
-		return fmt.Errorf("No authentication data given. Use 'knox login' or set KNOX_USER_AUTH or KNOX_MACHINE_AUTH")
-	}
-	// Get user from env variable and machine hostname from elsewhere.
-	r.Header.Set("Authorization", auth)
-	r.Header.Set("User-Agent", fmt.Sprintf("Knox_Client/%s", c.Version))
-
-	if body != nil {
-		r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	if len(c.AuthHandlers) == 0 {
+		return errNoAuth
 	}
 
-	cli, err := c.getClient()
-	if err != nil {
-		return err
-	}
+	authRequestAttempted := false
+	for _, authHandler := range c.AuthHandlers {
+		auth := authHandler()
+		if auth == "" {
+			continue
+		}
+		authRequestAttempted = true
 
-	resp := &Response{}
-	resp.Data = data
-	// Contains retry logic if we decode a 500 error.
-	for i := 1; i <= maxRetryAttempts; i++ {
-		err = getHTTPResp(cli, r, resp)
+		// Get user from env variable and machine hostname from elsewhere.
+		r.Header.Set("Authorization", auth)
+		r.Header.Set("User-Agent", fmt.Sprintf("Knox_Client/%s", c.Version))
+
+		if body != nil {
+			r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		}
+
+		cli, err := c.getClient()
 		if err != nil {
 			return err
 		}
-		if resp.Status != "ok" {
-			if (resp.Code != InternalServerErrorCode) || (i == maxRetryAttempts) {
-				return fmt.Errorf(resp.Message)
+
+		resp := &Response{}
+		resp.Data = data
+		// Contains retry logic if we decode a 500 error.
+		for i := 1; i <= maxRetryAttempts; i++ {
+			err = getHTTPResp(cli, r, resp)
+			if err != nil {
+				return err
 			}
-			time.Sleep(GetBackoffDuration(i))
-		} else {
+			if resp.Status != "ok" {
+				if resp.Code == UnauthorizedCode || resp.Code == UnauthenticatedCode {
+					// If we get a 401 or 403, we need to continue to a different auth handler.
+					break
+				} else {
+					// If the failure is non authentication related, retry if we got a 500.
+					if (resp.Code != InternalServerErrorCode) || (i == maxRetryAttempts) {
+						// If we get a 500, we need to retry the request.
+						return fmt.Errorf(resp.Message)
+					}
+					time.Sleep(GetBackoffDuration(i))
+				}
+			} else {
+				break
+			}
+		}
+
+		// If the current response is OK, we can break out of trying other auth handlers.
+		if resp.Status == "ok" {
 			break
 		}
+	}
+
+	if !authRequestAttempted {
+		return errNoAuth
 	}
 
 	return nil
@@ -545,9 +577,9 @@ func MockClient(host, keyFolder string) *HTTPClient {
 		KeyFolder: keyFolder,
 		UncachedClient: &UncachedHTTPClient{
 			Host: host,
-			AuthHandler: func() string {
+			AuthHandlers: []AuthHandler{func() string {
 				return "TESTAUTH"
-			},
+			}},
 			Client:  &http.Client{Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}},
 			Version: "mock",
 		},

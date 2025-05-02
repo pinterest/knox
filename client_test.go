@@ -2,6 +2,7 @@ package knox
 
 import (
 	"bytes"
+	"crypto/tls"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -55,10 +56,10 @@ func buildGoodResponse(data interface{}) ([]byte, error) {
 
 }
 
-func buildInternalServerErrorResponse(data interface{}) ([]byte, error) {
+func buildErrorResponse(code int, data interface{}) ([]byte, error) {
 	resp := &Response{
 		Status:    "err",
-		Code:      InternalServerErrorCode,
+		Code:      code,
 		Host:      "test",
 		Timestamp: 1234567890,
 		Message:   "Internal Server Error",
@@ -145,6 +146,83 @@ func TestGetKey(t *testing.T) {
 	}
 	if k.Path != "" {
 		t.Fatalf("path '%v' is not empty", k.Path)
+	}
+}
+
+// TestGetKeyWithMultipleAuth tests getting keys with multiple auth methods
+func TestGetKeyWithMultipleAuth(t *testing.T) {
+	expected := Key{
+		ID:          "testkey",
+		ACL:         ACL([]Access{}),
+		VersionList: KeyVersionList{},
+		VersionHash: "VersionHash",
+	}
+
+	var ops uint64
+	srv := buildConcurrentServer(200, func(r *http.Request) []byte {
+		if r.Method != "GET" {
+			t.Fatalf("%s is not GET", r.Method)
+		}
+		if r.URL.Path != "/v0/keys/testkey1/" {
+			t.Fatalf("%s is not the path for testkey1", r.URL.Path)
+		}
+		atomic.AddUint64(&ops, 1)
+		var resp []byte
+		var err error
+		if ops == 1 {
+			resp, err = buildErrorResponse(UnauthorizedCode, nil)
+			if err != nil {
+				t.Fatalf("%s is not nil", err)
+			}
+		} else if ops == 2 {
+			resp, err = buildGoodResponse(expected)
+			if err != nil {
+				t.Fatalf("%s is not nil", err)
+			}
+		} else {
+			t.Fatalf("Unexpected number of requests: %d", ops)
+		}
+		return resp
+	})
+	defer srv.Close()
+
+	authHandlerFunc := func() string {
+		return "TESTAUTH"
+	}
+	cli := &HTTPClient{
+		KeyFolder: "",
+		UncachedClient: &UncachedHTTPClient{
+			Host:         srv.Listener.Addr().String(),
+			AuthHandlers: []AuthHandler{authHandlerFunc, authHandlerFunc, authHandlerFunc},
+			Client:       &http.Client{Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}},
+			Version:      "mock",
+		},
+	}
+
+	// Get the key
+	k, err := cli.GetKey("testkey1")
+	if err != nil {
+		t.Fatalf("%s is not nil", err)
+	}
+	if k.ID != expected.ID {
+		t.Fatalf("%s does not equal %s", k.ID, expected.ID)
+	}
+	if len(k.ACL) != len(expected.ACL) {
+		t.Fatalf("%d does not equal %d", len(k.ACL), len(expected.ACL))
+	}
+	if len(k.VersionList) != len(expected.VersionList) {
+		t.Fatalf("%d does not equal %d", len(k.VersionList), len(expected.VersionList))
+	}
+	if k.VersionHash != expected.VersionHash {
+		t.Fatalf("%s does not equal %s", k.VersionHash, expected.VersionHash)
+	}
+	if k.Path != "" {
+		t.Fatalf("path '%v' is not empty", k.Path)
+	}
+
+	// Verify that our atomic counter was incremented 2 times (1 attempt for each authHandler)
+	if ops != 2 {
+		t.Fatalf("%d total client attempts is not 2", ops)
 	}
 }
 
@@ -394,7 +472,7 @@ func TestConcurrentDeletes(t *testing.T) {
 				t.Fatalf("%s is not nil", err)
 			}
 		} else {
-			resp, err = buildInternalServerErrorResponse("")
+			resp, err = buildErrorResponse(InternalServerErrorCode, "")
 			if err != nil {
 				t.Fatalf("%s is not nil", err)
 			}

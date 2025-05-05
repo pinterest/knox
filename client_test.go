@@ -226,6 +226,43 @@ func TestGetKeyWithMultipleAuth(t *testing.T) {
 	}
 }
 
+func TestNoAuth(t *testing.T) {
+	// Create a test server - won't be used since auth fails before request is made
+	resp, err := buildErrorResponse(UnauthenticatedCode, "")
+	if err != nil {
+		t.Fatalf("%s is not nil", err)
+	}
+	srv := buildServer(200, resp, func(r *http.Request) {
+		// This should not be called as auth should fail before request is made
+		t.Fatalf("Server was called, but auth should have failed before request was made")
+	})
+	defer srv.Close()
+
+	// Create an auth handler that returns an empty string (simulating no valid auth)
+	emptyAuthHandler := func() string {
+		return ""
+	}
+
+	// Create client with the empty auth handler
+	cli := &HTTPClient{
+		KeyFolder: "",
+		UncachedClient: &UncachedHTTPClient{
+			Host:         srv.Listener.Addr().String(),
+			AuthHandlers: []AuthHandler{emptyAuthHandler},
+			Client:       &http.Client{Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}},
+			Version:      "mock",
+		},
+	}
+
+	// Try to get keys
+	_, err = cli.GetKeys(map[string]string{})
+
+	// Check that we got the errNoAuth error
+	if err != errNoAuth {
+		t.Fatalf("Expected errNoAuth but got: %v", err)
+	}
+}
+
 func TestGetKeys(t *testing.T) {
 	expected := []string{"a", "b", "c"}
 	resp, err := buildGoodResponse(expected)

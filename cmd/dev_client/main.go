@@ -115,9 +115,10 @@ func main() {
 		tlsConfig.Certificates = []tls.Certificate{cert}
 	}
 
+	authHandlers := []knox.AuthHandler{authHandler}
 	cli := &knox.HTTPClient{
 		KeyFolder:      keyFolder,
-		UncachedClient: knox.NewUncachedClient(hostname, &http.Client{Transport: &http.Transport{TLSClientConfig: tlsConfig}}, authHandler, ""),
+		UncachedClient: knox.NewUncachedClient(hostname, &http.Client{Transport: &http.Transport{TLSClientConfig: tlsConfig}}, authHandlers, ""),
 	}
 
 	loginCommand := client.NewLoginCommand(clientID, tokenEndpoint, "", "", "", "")

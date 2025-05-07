@@ -205,7 +205,9 @@ type HTTPClient struct {
 	UncachedClient *UncachedHTTPClient
 }
 
-type AuthHandler func() string
+// AuthHandler represents an authentication method, clientOverride is optional and allows using a custom client
+// for the request. clientOverride is useful when using multiple TLS certs as different auth handlers.
+type AuthHandler func() (authToken string, clientOverride HTTP)
 
 // NewClient creates a new client to connect to talk to Knox.
 // NOTE: passing multiple authHandlers can cause severe performance issues, use with caution.
@@ -503,23 +505,28 @@ func (c *UncachedHTTPClient) getHTTPData(method string, path string, body url.Va
 
 	authRequestAttempted := false
 	for _, authHandler := range c.AuthHandlers {
-		auth := authHandler()
-		if auth == "" {
+		authToken, clientOverride := authHandler()
+		if authToken == "" {
 			continue
 		}
 		authRequestAttempted = true
 
 		// Get user from env variable and machine hostname from elsewhere.
-		r.Header.Set("Authorization", auth)
+		r.Header.Set("Authorization", authToken)
 		r.Header.Set("User-Agent", fmt.Sprintf("Knox_Client/%s", c.Version))
 
 		if body != nil {
 			r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 		}
 
-		cli, err := c.getClient()
-		if err != nil {
-			return err
+		var cli HTTP
+		if clientOverride != nil {
+			cli = clientOverride
+		} else {
+			cli, err = c.getClient()
+			if err != nil {
+				return err
+			}
 		}
 
 		resp := &Response{}
@@ -577,8 +584,8 @@ func MockClient(host, keyFolder string) *HTTPClient {
 		KeyFolder: keyFolder,
 		UncachedClient: &UncachedHTTPClient{
 			Host: host,
-			AuthHandlers: []AuthHandler{func() string {
-				return "TESTAUTH"
+			AuthHandlers: []AuthHandler{func() (string, HTTP) {
+				return "TESTAUTH", nil
 			}},
 			Client:  &http.Client{Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}},
 			Version: "mock",

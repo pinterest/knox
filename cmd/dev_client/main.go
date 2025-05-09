@@ -63,43 +63,43 @@ func getCert() (tls.Certificate, error) {
 
 // authHandler is used to generate an authentication header.
 // The server expects VersionByte + TypeByte + IDToPassToAuthHandler.
-func authHandler() string {
+func authHandler() (string, knox.HTTP) {
 	if s := os.Getenv("KNOX_USER_AUTH"); s != "" {
-		return "0u" + s
+		return "0u" + s, nil
 	}
 	if s := os.Getenv("KNOX_MACHINE_AUTH"); s != "" {
 		c, _ := getCert()
 		x509Cert, err := x509.ParseCertificate(c.Certificate[0])
 		if err != nil {
-			return "0t" + s
+			return "0t" + s, nil
 		}
 		if len(x509Cert.Subject.CommonName) > 0 {
-			return "0t" + x509Cert.Subject.CommonName
+			return "0t" + x509Cert.Subject.CommonName, nil
 		} else if len(x509Cert.DNSNames) > 0 {
-			return "0t" + x509Cert.DNSNames[0]
+			return "0t" + x509Cert.DNSNames[0], nil
 		} else {
-			return "0t" + s
+			return "0t" + s, nil
 		}
 	}
 	if s := os.Getenv("KNOX_SERVICE_AUTH"); s != "" {
-		return "0s" + s
+		return "0s" + s, nil
 	}
 	u, err := user.Current()
 	if err != nil {
-		return ""
+		return "", nil
 	}
 
 	d, err := ioutil.ReadFile(u.HomeDir + "/.knox_user_auth")
 	if err != nil {
-		return ""
+		return "", nil
 	}
 	var authResp authTokenResp
 	err = json.Unmarshal(d, &authResp)
 	if err != nil {
-		return ""
+		return "", nil
 	}
 
-	return "0u" + authResp.AccessToken
+	return "0u" + authResp.AccessToken, nil
 }
 
 func main() {

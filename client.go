@@ -205,7 +205,9 @@ type HTTPClient struct {
 	UncachedClient *UncachedHTTPClient
 }
 
-type AuthHandler func() string
+// AuthHandler represents an authentication method, clientOverride is optional and allows using a custom client
+// for the request. clientOverride is useful when using multiple TLS certs as different auth handlers.
+type AuthHandler func() (authToken string, clientOverride HTTP)
 
 // NewClient creates a new client to connect to talk to Knox.
 // NOTE: passing multiple authHandlers can cause severe performance issues, use with caution.
@@ -327,10 +329,10 @@ func (c *HTTPClient) UpdateVersion(keyID, versionID string, status VersionStatus
 }
 
 func (c *HTTPClient) getClient() (HTTP, error) {
-	if c.UncachedClient.Client == nil {
-		c.UncachedClient.Client = &http.Client{}
+	if c.UncachedClient.DefaultClient == nil {
+		c.UncachedClient.DefaultClient = &http.Client{}
 	}
-	return c.UncachedClient.Client, nil
+	return c.UncachedClient.DefaultClient, nil
 }
 
 func (c *HTTPClient) getHTTPData(method string, path string, body url.Values, data interface{}) error {
@@ -343,8 +345,8 @@ type UncachedHTTPClient struct {
 	Host string
 	//AuthHandlers contains a list of auth handlers which return the authorization string for authenticating to knox. Users should be prefixed by 0u, machines by 0m. On fail, return empty string.
 	AuthHandlers []AuthHandler
-	// Client is the http client for making network calls
-	Client HTTP
+	// DefaultClient is the http client for making network calls
+	DefaultClient HTTP
 	// Version is the current client version, useful for debugging and sent as a header
 	Version string
 }
@@ -353,10 +355,10 @@ type UncachedHTTPClient struct {
 // NOTE: passing multiple authHandlers can cause severe performance issues, use with caution.
 func NewUncachedClient(host string, client HTTP, authHandlers []AuthHandler, version string) *UncachedHTTPClient {
 	return &UncachedHTTPClient{
-		Host:         host,
-		Client:       client,
-		AuthHandlers: authHandlers,
-		Version:      version,
+		Host:          host,
+		DefaultClient: client,
+		AuthHandlers:  authHandlers,
+		Version:       version,
 	}
 }
 
@@ -485,10 +487,10 @@ func (c *UncachedHTTPClient) UpdateVersion(keyID, versionID string, status Versi
 }
 
 func (c *UncachedHTTPClient) getClient() (HTTP, error) {
-	if c.Client == nil {
-		c.Client = &http.Client{}
+	if c.DefaultClient == nil {
+		c.DefaultClient = &http.Client{}
 	}
-	return c.Client, nil
+	return c.DefaultClient, nil
 }
 
 func (c *UncachedHTTPClient) getHTTPData(method string, path string, body url.Values, data interface{}) error {
@@ -503,23 +505,28 @@ func (c *UncachedHTTPClient) getHTTPData(method string, path string, body url.Va
 
 	authRequestAttempted := false
 	for _, authHandler := range c.AuthHandlers {
-		auth := authHandler()
-		if auth == "" {
+		authToken, clientOverride := authHandler()
+		if authToken == "" {
 			continue
 		}
 		authRequestAttempted = true
 
 		// Get user from env variable and machine hostname from elsewhere.
-		r.Header.Set("Authorization", auth)
+		r.Header.Set("Authorization", authToken)
 		r.Header.Set("User-Agent", fmt.Sprintf("Knox_Client/%s", c.Version))
 
 		if body != nil {
 			r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 		}
 
-		cli, err := c.getClient()
-		if err != nil {
-			return err
+		var cli HTTP
+		if clientOverride != nil {
+			cli = clientOverride
+		} else {
+			cli, err = c.getClient()
+			if err != nil {
+				return err
+			}
 		}
 
 		resp := &Response{}
@@ -577,11 +584,11 @@ func MockClient(host, keyFolder string) *HTTPClient {
 		KeyFolder: keyFolder,
 		UncachedClient: &UncachedHTTPClient{
 			Host: host,
-			AuthHandlers: []AuthHandler{func() string {
-				return "TESTAUTH"
+			AuthHandlers: []AuthHandler{func() (string, HTTP) {
+				return "TESTAUTH", nil
 			}},
-			Client:  &http.Client{Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}},
-			Version: "mock",
+			DefaultClient: &http.Client{Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}},
+			Version:       "mock",
 		},
 	}
 }

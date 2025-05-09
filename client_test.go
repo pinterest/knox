@@ -15,6 +15,20 @@ import (
 	"testing"
 )
 
+type mockHTTPClient struct {
+	client  *http.Client
+	counter uint64
+}
+
+func (m *mockHTTPClient) Do(req *http.Request) (*http.Response, error) {
+	atomic.AddUint64(&m.counter, 1)
+	return m.client.Do(req)
+}
+
+func (m *mockHTTPClient) getCounter() uint64 {
+	return atomic.LoadUint64(&m.counter)
+}
+
 func TestMockClient(t *testing.T) {
 	p := "primary"
 	a := []string{"active1", "active2"}
@@ -186,16 +200,22 @@ func TestGetKeyWithMultipleAuth(t *testing.T) {
 	})
 	defer srv.Close()
 
-	authHandlerFunc := func() string {
-		return "TESTAUTH"
+	authHandlerFunc := func() (string, HTTP) {
+		return "TESTAUTH", nil
+	}
+	mockClient := &mockHTTPClient{
+		client: &http.Client{Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}},
+	}
+	authHandlerFunc2 := func() (string, HTTP) {
+		return "TESTAUTH2", mockClient
 	}
 	cli := &HTTPClient{
 		KeyFolder: "",
 		UncachedClient: &UncachedHTTPClient{
-			Host:         srv.Listener.Addr().String(),
-			AuthHandlers: []AuthHandler{authHandlerFunc, authHandlerFunc, authHandlerFunc},
-			Client:       &http.Client{Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}},
-			Version:      "mock",
+			Host:          srv.Listener.Addr().String(),
+			AuthHandlers:  []AuthHandler{authHandlerFunc, authHandlerFunc2, authHandlerFunc2},
+			DefaultClient: &http.Client{Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}},
+			Version:       "mock",
 		},
 	}
 
@@ -224,6 +244,11 @@ func TestGetKeyWithMultipleAuth(t *testing.T) {
 	if ops != 2 {
 		t.Fatalf("%d total client attempts is not 2", ops)
 	}
+
+	// Verify that the mock client was called once
+	if mockClient.getCounter() != 1 {
+		t.Fatalf("%d total mock client attempts is not 1", mockClient.getCounter())
+	}
 }
 
 func TestNoAuth(t *testing.T) {
@@ -239,18 +264,18 @@ func TestNoAuth(t *testing.T) {
 	defer srv.Close()
 
 	// Create an auth handler that returns an empty string (simulating no valid auth)
-	emptyAuthHandler := func() string {
-		return ""
+	emptyAuthHandler := func() (string, HTTP) {
+		return "", nil
 	}
 
 	// Create client with the empty auth handler
 	cli := &HTTPClient{
 		KeyFolder: "",
 		UncachedClient: &UncachedHTTPClient{
-			Host:         srv.Listener.Addr().String(),
-			AuthHandlers: []AuthHandler{emptyAuthHandler},
-			Client:       &http.Client{Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}},
-			Version:      "mock",
+			Host:          srv.Listener.Addr().String(),
+			AuthHandlers:  []AuthHandler{emptyAuthHandler},
+			DefaultClient: &http.Client{Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}},
+			Version:       "mock",
 		},
 	}
 

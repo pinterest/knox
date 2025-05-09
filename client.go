@@ -329,10 +329,10 @@ func (c *HTTPClient) UpdateVersion(keyID, versionID string, status VersionStatus
 }
 
 func (c *HTTPClient) getClient() (HTTP, error) {
-	if c.UncachedClient.Client == nil {
-		c.UncachedClient.Client = &http.Client{}
+	if c.UncachedClient.DefaultClient == nil {
+		c.UncachedClient.DefaultClient = &http.Client{}
 	}
-	return c.UncachedClient.Client, nil
+	return c.UncachedClient.DefaultClient, nil
 }
 
 func (c *HTTPClient) getHTTPData(method string, path string, body url.Values, data interface{}) error {
@@ -345,8 +345,8 @@ type UncachedHTTPClient struct {
 	Host string
 	//AuthHandlers contains a list of auth handlers which return the authorization string for authenticating to knox. Users should be prefixed by 0u, machines by 0m. On fail, return empty string.
 	AuthHandlers []AuthHandler
-	// Client is the http client for making network calls
-	Client HTTP
+	// DefaultClient is the http client for making network calls
+	DefaultClient HTTP
 	// Version is the current client version, useful for debugging and sent as a header
 	Version string
 }
@@ -355,10 +355,10 @@ type UncachedHTTPClient struct {
 // NOTE: passing multiple authHandlers can cause severe performance issues, use with caution.
 func NewUncachedClient(host string, client HTTP, authHandlers []AuthHandler, version string) *UncachedHTTPClient {
 	return &UncachedHTTPClient{
-		Host:         host,
-		Client:       client,
-		AuthHandlers: authHandlers,
-		Version:      version,
+		Host:          host,
+		DefaultClient: client,
+		AuthHandlers:  authHandlers,
+		Version:       version,
 	}
 }
 
@@ -487,10 +487,10 @@ func (c *UncachedHTTPClient) UpdateVersion(keyID, versionID string, status Versi
 }
 
 func (c *UncachedHTTPClient) getClient() (HTTP, error) {
-	if c.Client == nil {
-		c.Client = &http.Client{}
+	if c.DefaultClient == nil {
+		c.DefaultClient = &http.Client{}
 	}
-	return c.Client, nil
+	return c.DefaultClient, nil
 }
 
 func (c *UncachedHTTPClient) getHTTPData(method string, path string, body url.Values, data interface{}) error {
@@ -587,8 +587,8 @@ func MockClient(host, keyFolder string) *HTTPClient {
 			AuthHandlers: []AuthHandler{func() (string, HTTP) {
 				return "TESTAUTH", nil
 			}},
-			Client:  &http.Client{Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}},
-			Version: "mock",
+			DefaultClient: &http.Client{Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}},
+			Version:       "mock",
 		},
 	}
 }

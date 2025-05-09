@@ -212,10 +212,10 @@ func TestGetKeyWithMultipleAuth(t *testing.T) {
 	cli := &HTTPClient{
 		KeyFolder: "",
 		UncachedClient: &UncachedHTTPClient{
-			Host:         srv.Listener.Addr().String(),
-			AuthHandlers: []AuthHandler{authHandlerFunc, authHandlerFunc2, authHandlerFunc2},
-			Client:       &http.Client{Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}},
-			Version:      "mock",
+			Host:          srv.Listener.Addr().String(),
+			AuthHandlers:  []AuthHandler{authHandlerFunc, authHandlerFunc2, authHandlerFunc2},
+			DefaultClient: &http.Client{Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}},
+			Version:       "mock",
 		},
 	}
 
@@ -272,10 +272,10 @@ func TestNoAuth(t *testing.T) {
 	cli := &HTTPClient{
 		KeyFolder: "",
 		UncachedClient: &UncachedHTTPClient{
-			Host:         srv.Listener.Addr().String(),
-			AuthHandlers: []AuthHandler{emptyAuthHandler},
-			Client:       &http.Client{Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}},
-			Version:      "mock",
+			Host:          srv.Listener.Addr().String(),
+			AuthHandlers:  []AuthHandler{emptyAuthHandler},
+			DefaultClient: &http.Client{Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}},
+			Version:       "mock",
 		},
 	}
 

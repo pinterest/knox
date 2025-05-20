@@ -254,7 +254,7 @@ func TestGetKeyWithMultipleAuth(t *testing.T) {
 // TestNoAuthPrincipals tests the case where no auth handlers are available
 func TestNoAuthPrincipals(t *testing.T) {
 	// Create a test server - won't be used since auth fails before request is made
-	resp, err := buildErrorResponse(UnauthenticatedCode, "")
+	resp, err := buildErrorResponse(UnauthenticatedCode, nil)
 	if err != nil {
 		t.Fatalf("%s is not nil", err)
 	}
@@ -292,7 +292,7 @@ func TestNoAuthPrincipals(t *testing.T) {
 // TestOnlyUnauthPrincipals tests the case where a principal is provided but it is unauthorized
 func TestOnlyUnauthPrincipals(t *testing.T) {
 	// Create a test server which returns an unauthorized error
-	resp, err := buildErrorResponse(UnauthorizedCode, "")
+	resp, err := buildErrorResponse(UnauthorizedCode, nil)
 	if err != nil {
 		t.Fatalf("%s is not nil", err)
 	}

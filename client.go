@@ -27,7 +27,8 @@ const maxBackoff = 3 * time.Second
 const maxRetryAttempts = 3
 
 var (
-	errNoAuth = errors.New("No authentication data given. Use 'knox login' or set KNOX_USER_AUTH or KNOX_MACHINE_AUTH")
+	errNoAuth           = errors.New("No authentication data given. Use 'knox login' or set KNOX_USER_AUTH or KNOX_MACHINE_AUTH")
+	errUnsuccessfulAuth = errors.New("Unsuccessful authorization. No attempted principals were able to perform the requested operation.")
 )
 
 // Client is an interface for interacting with a specific knox key
@@ -504,6 +505,7 @@ func (c *UncachedHTTPClient) getHTTPData(method string, path string, body url.Va
 	}
 
 	authRequestAttempted := false
+
 	for _, authHandler := range c.AuthHandlers {
 		authToken, clientOverride := authHandler()
 		if authToken == "" {
@@ -550,13 +552,9 @@ func (c *UncachedHTTPClient) getHTTPData(method string, path string, body url.Va
 					time.Sleep(GetBackoffDuration(i))
 				}
 			} else {
-				break
+				// If we got a successful response, we can return the data.
+				return nil
 			}
-		}
-
-		// If the current response is OK, we can break out of trying other auth handlers.
-		if resp.Status == "ok" {
-			break
 		}
 	}
 
@@ -564,7 +562,7 @@ func (c *UncachedHTTPClient) getHTTPData(method string, path string, body url.Va
 		return errNoAuth
 	}
 
-	return nil
+	return errUnsuccessfulAuth
 }
 
 func getHTTPResp(cli HTTP, r *http.Request, resp *Response) error {

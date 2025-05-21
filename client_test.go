@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/tls"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -200,14 +201,14 @@ func TestGetKeyWithMultipleAuth(t *testing.T) {
 	})
 	defer srv.Close()
 
-	authHandlerFunc := func() (string, HTTP) {
-		return "TESTAUTH", nil
+	authHandlerFunc := func() (string, string, HTTP) {
+		return "TESTAUTH", "TESTAUTHTYPE", nil
 	}
 	mockClient := &mockHTTPClient{
 		client: &http.Client{Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}},
 	}
-	authHandlerFunc2 := func() (string, HTTP) {
-		return "TESTAUTH2", mockClient
+	authHandlerFunc2 := func() (string, string, HTTP) {
+		return "TESTAUTH2", "TESTAUTHTYPE", mockClient
 	}
 	cli := &HTTPClient{
 		KeyFolder: "",
@@ -265,8 +266,8 @@ func TestNoAuthPrincipals(t *testing.T) {
 	defer srv.Close()
 
 	// Create an auth handler that returns an empty string (simulating no valid auth)
-	emptyAuthHandler := func() (string, HTTP) {
-		return "", nil
+	emptyAuthHandler := func() (string, string, HTTP) {
+		return "", "", nil
 	}
 
 	// Create client with the empty auth handler
@@ -284,7 +285,7 @@ func TestNoAuthPrincipals(t *testing.T) {
 	_, err = cli.GetKeys(map[string]string{})
 
 	// Check that we got the errNoAuth error
-	if err != errNoAuth {
+	if !errors.Is(err, errNoAuth) {
 		t.Fatalf("Expected errNoAuth but got: %v", err)
 	}
 }
@@ -300,8 +301,8 @@ func TestOnlyUnauthPrincipals(t *testing.T) {
 	defer srv.Close()
 
 	// Create client with the user auth handler
-	userAuthHandler := func() (string, HTTP) {
-		return "0uUSERTOKEN", nil
+	userAuthHandler := func() (string, string, HTTP) {
+		return "0uUSERTOKEN", "user", nil
 	}
 	cli := &HTTPClient{
 		KeyFolder: "",
@@ -317,7 +318,7 @@ func TestOnlyUnauthPrincipals(t *testing.T) {
 	_, err = cli.GetKey("testkey")
 
 	// Check that we got the unauthorized error
-	if err != errUnsuccessfulAuth {
+	if !errors.Is(err, errUnsuccessfulAuth) {
 		t.Fatalf("Expected errUnsuccessfulAuth but got: %v", err)
 	}
 }

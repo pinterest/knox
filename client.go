@@ -28,7 +28,7 @@ const maxRetryAttempts = 3
 
 var (
 	errNoAuth           = errors.New("No authentication data given. Use 'knox login' or set KNOX_USER_AUTH or KNOX_MACHINE_AUTH")
-	errUnsuccessfulAuth = errors.New("Unsuccessful authorization. No attempted principals were able to perform the requested operation.")
+	errUnsuccessfulAuth = errors.New("Unsuccessful authorization. No attempted principals were able to perform the requested operation")
 )
 
 // Client is an interface for interacting with a specific knox key
@@ -208,7 +208,7 @@ type HTTPClient struct {
 
 // AuthHandler represents an authentication method, clientOverride is optional and allows using a custom client
 // for the request. clientOverride is useful when using multiple TLS certs as different auth handlers.
-type AuthHandler func() (authToken string, clientOverride HTTP)
+type AuthHandler func() (authToken string, authType string, clientOverride HTTP)
 
 // NewClient creates a new client to connect to talk to Knox.
 // NOTE: passing multiple authHandlers can cause severe performance issues, use with caution.
@@ -505,13 +505,15 @@ func (c *UncachedHTTPClient) getHTTPData(method string, path string, body url.Va
 	}
 
 	authRequestAttempted := false
+	attemptedAuthTypes := []string{}
 
 	for _, authHandler := range c.AuthHandlers {
-		authToken, clientOverride := authHandler()
+		authToken, authType, clientOverride := authHandler()
 		if authToken == "" {
 			continue
 		}
 		authRequestAttempted = true
+		attemptedAuthTypes = append(attemptedAuthTypes, authType)
 
 		// Get user from env variable and machine hostname from elsewhere.
 		r.Header.Set("Authorization", authToken)
@@ -562,7 +564,7 @@ func (c *UncachedHTTPClient) getHTTPData(method string, path string, body url.Va
 		return errNoAuth
 	}
 
-	return errUnsuccessfulAuth
+	return fmt.Errorf("%w: attempted auth types: %v", errUnsuccessfulAuth, attemptedAuthTypes)
 }
 
 func getHTTPResp(cli HTTP, r *http.Request, resp *Response) error {
@@ -582,8 +584,8 @@ func MockClient(host, keyFolder string) *HTTPClient {
 		KeyFolder: keyFolder,
 		UncachedClient: &UncachedHTTPClient{
 			Host: host,
-			AuthHandlers: []AuthHandler{func() (string, HTTP) {
-				return "TESTAUTH", nil
+			AuthHandlers: []AuthHandler{func() (string, string, HTTP) {
+				return "TESTAUTH", "TESTAUTHTYPE", nil
 			}},
 			DefaultClient: &http.Client{Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}},
 			Version:       "mock",

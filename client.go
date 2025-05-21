@@ -495,11 +495,6 @@ func (c *UncachedHTTPClient) getClient() (HTTP, error) {
 }
 
 func (c *UncachedHTTPClient) getHTTPData(method string, path string, body url.Values, data interface{}) error {
-	r, err := http.NewRequest(method, "https://"+c.Host+path, bytes.NewBufferString(body.Encode()))
-	if err != nil {
-		return err
-	}
-
 	if len(c.AuthHandlers) == 0 {
 		return errNoAuth
 	}
@@ -514,6 +509,13 @@ func (c *UncachedHTTPClient) getHTTPData(method string, path string, body url.Va
 		}
 		authRequestAttempted = true
 		attemptedAuthTypes = append(attemptedAuthTypes, authType)
+
+		// Create the request per authHandler to prevent body from being reused between requests.
+		// This is due to the body being non-reusable after the first read.
+		r, err := http.NewRequest(method, "https://"+c.Host+path, bytes.NewBufferString(body.Encode()))
+		if err != nil {
+			return err
+		}
 
 		// Get user from env variable and machine hostname from elsewhere.
 		r.Header.Set("Authorization", authToken)

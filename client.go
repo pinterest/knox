@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"math/rand"
 	"net/http"
@@ -27,7 +26,8 @@ const maxBackoff = 3 * time.Second
 const maxRetryAttempts = 3
 
 var (
-	errNoAuth = errors.New("No authentication data given. Use 'knox login' or set KNOX_USER_AUTH or KNOX_MACHINE_AUTH")
+	errNoAuth           = errors.New("No authentication data given. Use 'knox login' or set KNOX_USER_AUTH or KNOX_MACHINE_AUTH")
+	errUnsuccessfulAuth = errors.New("Unsuccessful authorization. No attempted principals were able to perform the requested operation")
 )
 
 // Client is an interface for interacting with a specific knox key
@@ -207,7 +207,7 @@ type HTTPClient struct {
 
 // AuthHandler represents an authentication method, clientOverride is optional and allows using a custom client
 // for the request. clientOverride is useful when using multiple TLS certs as different auth handlers.
-type AuthHandler func() (authToken string, clientOverride HTTP)
+type AuthHandler func() (authToken string, authType string, clientOverride HTTP)
 
 // NewClient creates a new client to connect to talk to Knox.
 // NOTE: passing multiple authHandlers can cause severe performance issues, use with caution.
@@ -224,7 +224,7 @@ func (c *HTTPClient) CacheGetKey(keyID string) (*Key, error) {
 		return nil, fmt.Errorf("no folder set for cached key")
 	}
 	path := path.Join(c.KeyFolder, keyID)
-	b, err := ioutil.ReadFile(path)
+	b, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err
 	}
@@ -266,7 +266,7 @@ func (c *HTTPClient) CacheGetKeyWithStatus(keyID string, status VersionStatus) (
 		return nil, err
 	}
 	path := c.KeyFolder + keyID + "?status=" + string(st)
-	b, err := ioutil.ReadFile(path)
+	b, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err
 	}
@@ -494,22 +494,27 @@ func (c *UncachedHTTPClient) getClient() (HTTP, error) {
 }
 
 func (c *UncachedHTTPClient) getHTTPData(method string, path string, body url.Values, data interface{}) error {
-	r, err := http.NewRequest(method, "https://"+c.Host+path, bytes.NewBufferString(body.Encode()))
-	if err != nil {
-		return err
-	}
-
 	if len(c.AuthHandlers) == 0 {
 		return errNoAuth
 	}
 
 	authRequestAttempted := false
+	attemptedAuthTypes := []string{}
+
 	for _, authHandler := range c.AuthHandlers {
-		authToken, clientOverride := authHandler()
+		authToken, authType, clientOverride := authHandler()
 		if authToken == "" {
 			continue
 		}
 		authRequestAttempted = true
+		attemptedAuthTypes = append(attemptedAuthTypes, authType)
+
+		// Create the request per authHandler to prevent body from being reused between requests.
+		// This is due to the body being non-reusable after the first read.
+		r, err := http.NewRequest(method, "https://"+c.Host+path, bytes.NewBufferString(body.Encode()))
+		if err != nil {
+			return err
+		}
 
 		// Get user from env variable and machine hostname from elsewhere.
 		r.Header.Set("Authorization", authToken)
@@ -550,13 +555,9 @@ func (c *UncachedHTTPClient) getHTTPData(method string, path string, body url.Va
 					time.Sleep(GetBackoffDuration(i))
 				}
 			} else {
-				break
+				// If we got a successful response, we can return the data.
+				return nil
 			}
-		}
-
-		// If the current response is OK, we can break out of trying other auth handlers.
-		if resp.Status == "ok" {
-			break
 		}
 	}
 
@@ -564,7 +565,7 @@ func (c *UncachedHTTPClient) getHTTPData(method string, path string, body url.Va
 		return errNoAuth
 	}
 
-	return nil
+	return fmt.Errorf("%w: attempted auth types: %v", errUnsuccessfulAuth, attemptedAuthTypes)
 }
 
 func getHTTPResp(cli HTTP, r *http.Request, resp *Response) error {
@@ -584,8 +585,8 @@ func MockClient(host, keyFolder string) *HTTPClient {
 		KeyFolder: keyFolder,
 		UncachedClient: &UncachedHTTPClient{
 			Host: host,
-			AuthHandlers: []AuthHandler{func() (string, HTTP) {
-				return "TESTAUTH", nil
+			AuthHandlers: []AuthHandler{func() (string, string, HTTP) {
+				return "TESTAUTH", "TESTAUTHTYPE", nil
 			}},
 			DefaultClient: &http.Client{Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}},
 			Version:       "mock",

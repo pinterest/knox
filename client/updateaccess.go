@@ -3,7 +3,7 @@ package client
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"os"
 
 	"github.com/pinterest/knox"
 )
@@ -60,7 +60,7 @@ func runUpdateAccess(cmd *Command, args []string) *ErrorStatus {
 			return &ErrorStatus{fmt.Errorf("access takes one argument when used with --acl. See 'knox help access'"), false}
 		}
 		keyID := args[0]
-		b, err := ioutil.ReadFile(*updateAccessACL)
+		b, err := os.ReadFile(*updateAccessACL)
 		if err != nil {
 			return &ErrorStatus{fmt.Errorf("Could not read acl file: %s", err.Error()), false}
 		}

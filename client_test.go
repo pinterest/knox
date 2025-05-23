@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/tls"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -200,14 +201,14 @@ func TestGetKeyWithMultipleAuth(t *testing.T) {
 	})
 	defer srv.Close()
 
-	authHandlerFunc := func() (string, HTTP) {
-		return "TESTAUTH", nil
+	authHandlerFunc := func() (string, string, HTTP) {
+		return "TESTAUTH", "TESTAUTHTYPE", nil
 	}
 	mockClient := &mockHTTPClient{
 		client: &http.Client{Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}},
 	}
-	authHandlerFunc2 := func() (string, HTTP) {
-		return "TESTAUTH2", mockClient
+	authHandlerFunc2 := func() (string, string, HTTP) {
+		return "TESTAUTH2", "TESTAUTHTYPE", mockClient
 	}
 	cli := &HTTPClient{
 		KeyFolder: "",
@@ -251,9 +252,10 @@ func TestGetKeyWithMultipleAuth(t *testing.T) {
 	}
 }
 
-func TestNoAuth(t *testing.T) {
+// TestNoAuthPrincipals tests the case where no auth handlers are available
+func TestNoAuthPrincipals(t *testing.T) {
 	// Create a test server - won't be used since auth fails before request is made
-	resp, err := buildErrorResponse(UnauthenticatedCode, "")
+	resp, err := buildErrorResponse(UnauthenticatedCode, nil)
 	if err != nil {
 		t.Fatalf("%s is not nil", err)
 	}
@@ -264,8 +266,8 @@ func TestNoAuth(t *testing.T) {
 	defer srv.Close()
 
 	// Create an auth handler that returns an empty string (simulating no valid auth)
-	emptyAuthHandler := func() (string, HTTP) {
-		return "", nil
+	emptyAuthHandler := func() (string, string, HTTP) {
+		return "", "", nil
 	}
 
 	// Create client with the empty auth handler
@@ -283,8 +285,41 @@ func TestNoAuth(t *testing.T) {
 	_, err = cli.GetKeys(map[string]string{})
 
 	// Check that we got the errNoAuth error
-	if err != errNoAuth {
+	if !errors.Is(err, errNoAuth) {
 		t.Fatalf("Expected errNoAuth but got: %v", err)
+	}
+}
+
+// TestOnlyUnauthPrincipals tests the case where a principal is provided but it is unauthorized
+func TestOnlyUnauthPrincipals(t *testing.T) {
+	// Create a test server which returns an unauthorized error
+	resp, err := buildErrorResponse(UnauthorizedCode, nil)
+	if err != nil {
+		t.Fatalf("%s is not nil", err)
+	}
+	srv := buildServer(200, resp, func(r *http.Request) {})
+	defer srv.Close()
+
+	// Create client with the user auth handler
+	userAuthHandler := func() (string, string, HTTP) {
+		return "0uUSERTOKEN", "user", nil
+	}
+	cli := &HTTPClient{
+		KeyFolder: "",
+		UncachedClient: &UncachedHTTPClient{
+			Host:          srv.Listener.Addr().String(),
+			AuthHandlers:  []AuthHandler{userAuthHandler},
+			DefaultClient: &http.Client{Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}},
+			Version:       "mock",
+		},
+	}
+
+	// Attempt to get key
+	_, err = cli.GetKey("testkey")
+
+	// Check that we got the unauthorized error
+	if !errors.Is(err, errUnsuccessfulAuth) {
+		t.Fatalf("Expected errUnsuccessfulAuth but got: %v", err)
 	}
 }
 

@@ -3,7 +3,7 @@ package client
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/url"
 	"os"
@@ -112,7 +112,7 @@ func runLogin(
 		return &ErrorStatus{fmt.Errorf("Error connecting to auth: %s", err.Error()), false}
 	}
 	var authResp authTokenResp
-	data, err := ioutil.ReadAll(resp.Body)
+	data, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return &ErrorStatus{fmt.Errorf("Failed to read data: %s", err.Error()), false}
 	}
@@ -124,7 +124,7 @@ func runLogin(
 		return &ErrorStatus{fmt.Errorf("Fail to authenticate: %q", authResp.Error), false}
 	}
 
-	err = ioutil.WriteFile(tokenFileLocation, data, 0600)
+	err = os.WriteFile(tokenFileLocation, data, 0600)
 	if err != nil {
 		return &ErrorStatus{fmt.Errorf("Failed to write auth data to file: %s", err.Error()), false}
 	}

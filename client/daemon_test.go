@@ -3,7 +3,6 @@ package client
 import (
 	"encoding/json"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -84,7 +83,7 @@ func setUpTest(t *testing.T) (*returnParameters, string, daemon) {
 	if err := setGoodResponse(&params, ""); err != nil {
 		t.Fatal("failed to initialize response params: " + err.Error())
 	}
-	dir, err := ioutil.TempDir("", "knox-test")
+	dir, err := os.MkdirTemp("", "knox-test")
 	if err != nil {
 		t.Fatal("Failed to create temp directory: " + err.Error())
 	}
@@ -411,7 +410,7 @@ func addRegisteredKey(k, reg string) error {
 }
 
 func TestCreateGet(t *testing.T) {
-	dir, err := ioutil.TempDir("", "knox-test")
+	dir, err := os.MkdirTemp("", "knox-test")
 	if err != nil {
 		t.Fatal("Failed to create temp directory: " + err.Error())
 	}
@@ -441,7 +440,7 @@ func TestCreateGet(t *testing.T) {
 }
 
 func TestDuplicateAdd(t *testing.T) {
-	dir, err := ioutil.TempDir("", "knox-test")
+	dir, err := os.MkdirTemp("", "knox-test")
 	if err != nil {
 		t.Fatal("Failed to create temp directory: " + err.Error())
 	}
@@ -483,7 +482,7 @@ func TestDuplicateAdd(t *testing.T) {
 }
 
 func TestAddRemove(t *testing.T) {
-	dir, err := ioutil.TempDir("", "knox-test")
+	dir, err := os.MkdirTemp("", "knox-test")
 	if err != nil {
 		t.Fatal("Failed to create temp directory: " + err.Error())
 	}
@@ -522,7 +521,7 @@ func TestAddRemove(t *testing.T) {
 }
 
 func TestOverwrite(t *testing.T) {
-	dir, err := ioutil.TempDir("", "knox-test")
+	dir, err := os.MkdirTemp("", "knox-test")
 	if err != nil {
 		t.Fatal("Failed to create temp directory: " + err.Error())
 	}
@@ -563,14 +562,14 @@ func TestOverwrite(t *testing.T) {
 }
 
 func TestBackwardsCompat(t *testing.T) {
-	dir, err := ioutil.TempDir("", "knox-test")
+	dir, err := os.MkdirTemp("", "knox-test")
 	if err != nil {
 		t.Fatal("Failed to create temp directory: " + err.Error())
 	}
 	defer TearDownTest(dir)
 	fn := dir + "/TestBackwardsCompat"
 	k := NewKeysFile(fn)
-	err = ioutil.WriteFile(fn, []byte{}, defaultFilePermission)
+	err = os.WriteFile(fn, []byte{}, defaultFilePermission)
 	if err != nil {
 		t.Fatalf("%s is not nil", err)
 	}
@@ -616,14 +615,14 @@ func TestLockTimeout(t *testing.T) {
 		t.Fatal("flock is not installed in path")
 	}
 
-	tmp, err := ioutil.TempDir("", "test-lock-timeout")
+	tmp, err := os.MkdirTemp("", "test-lock-timeout")
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer os.RemoveAll(tmp)
 
 	lockFile := path.Join(tmp, "lock")
-	ioutil.WriteFile(lockFile, []byte{}, 0600)
+	os.WriteFile(lockFile, []byte{}, 0600)
 
 	// Lock file in sub-process to create locking conflict
 	locker, stdout, stderr := lockFileInSeparateProcess(t, lockFile, "300")
@@ -634,8 +633,8 @@ func TestLockTimeout(t *testing.T) {
 			syscall.Kill(-locker.Process.Pid, syscall.SIGKILL)
 
 			// Print stdout/stderr from locking process for debugging
-			allStdout, err := ioutil.ReadAll(stdout)
-			allStderr, err := ioutil.ReadAll(stderr)
+			allStdout, err := io.ReadAll(stdout)
+			allStderr, err := io.ReadAll(stderr)
 			t.Log(string(allStdout), err)
 			t.Log(string(allStderr), err)
 		}

@@ -2,7 +2,7 @@ package client
 
 import (
 	"fmt"
-	"io/ioutil"
+	"io"
 	"os"
 
 	"github.com/pinterest/knox"
@@ -67,7 +67,7 @@ func runCreate(cmd *Command, args []string) *ErrorStatus {
 
 func readDataFromStdin() ([]byte, error) {
 	fmt.Println("Reading from stdin...")
-	data, err := ioutil.ReadAll(os.Stdin)
+	data, err := io.ReadAll(os.Stdin)
 	if err != nil {
 		return data, fmt.Errorf("problem reading key data: %s", err.Error())
 	}

@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"math/rand"
 	"net/http"
@@ -225,7 +224,7 @@ func (c *HTTPClient) CacheGetKey(keyID string) (*Key, error) {
 		return nil, fmt.Errorf("no folder set for cached key")
 	}
 	path := path.Join(c.KeyFolder, keyID)
-	b, err := ioutil.ReadFile(path)
+	b, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err
 	}
@@ -267,7 +266,7 @@ func (c *HTTPClient) CacheGetKeyWithStatus(keyID string, status VersionStatus) (
 		return nil, err
 	}
 	path := c.KeyFolder + keyID + "?status=" + string(st)
-	b, err := ioutil.ReadFile(path)
+	b, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err
 	}

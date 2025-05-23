@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"math/rand"
 	"os"
 	"os/exec"
@@ -146,7 +145,7 @@ func (d *daemon) initialize() error {
 	}
 	_, err = os.Stat(d.registerFilename())
 	if os.IsNotExist(err) {
-		err := ioutil.WriteFile(d.registerFilename(), []byte{}, defaultFilePermission)
+		err := os.WriteFile(d.registerFilename(), []byte{}, defaultFilePermission)
 		if err != nil {
 			return fmt.Errorf("Failed to initialize registered key file: %s", err.Error())
 		}
@@ -245,7 +244,7 @@ func (d daemon) deleteKey(keyID string) error {
 }
 
 func (d daemon) currentRegisteredKeys() ([]string, error) {
-	files, err := ioutil.ReadDir(d.keyDir())
+	files, err := os.ReadDir(d.keyDir())
 	if err != nil {
 		return nil, err
 	}
@@ -299,7 +298,7 @@ func (d daemon) processKey(keyID string) error {
 		return fmt.Errorf("Error marshalling key %s: %s", keyID, err.Error())
 	}
 	// Write to tmpfile, mv to normal location. Close + rm on failures
-	tmpFile, err := ioutil.TempFile(d.dir, fmt.Sprintf(".*.%s.tmp", keyID))
+	tmpFile, err := os.CreateTemp(d.dir, fmt.Sprintf(".*.%s.tmp", keyID))
 	if err != nil {
 		return fmt.Errorf("Error opening tmp file for key %s: %s", keyID, err.Error())
 	}
@@ -379,7 +378,7 @@ func (k *KeysFile) Unlock() error {
 
 // Get will get the list of key ids. It expects Lock to have been called.
 func (k *KeysFile) Get() ([]string, error) {
-	b, err := ioutil.ReadFile(k.fn)
+	b, err := os.ReadFile(k.fn)
 	if err != nil {
 		return nil, err
 	}
@@ -416,7 +415,7 @@ func (k *KeysFile) Remove(ks []string) error {
 		buffer.WriteString(k)
 		buffer.WriteByte('\n')
 	}
-	return ioutil.WriteFile(k.fn, buffer.Bytes(), 0666)
+	return os.WriteFile(k.fn, buffer.Bytes(), 0666)
 }
 
 // Add will add the key IDs to the list. It expects Lock to have been called.
@@ -447,7 +446,7 @@ func (k *KeysFile) Add(ks []string) error {
 		buffer.WriteString(k)
 		buffer.WriteByte('\n')
 	}
-	return ioutil.WriteFile(k.fn, buffer.Bytes(), 0666)
+	return os.WriteFile(k.fn, buffer.Bytes(), 0666)
 }
 
 // Overwrite deletes all existing values in the key list and writes the input.
@@ -464,7 +463,7 @@ func (k *KeysFile) Overwrite(ks []string) error {
 		buffer.WriteString(k)
 		buffer.WriteByte('\n')
 	}
-	return ioutil.WriteFile(k.fn, buffer.Bytes(), 0666)
+	return os.WriteFile(k.fn, buffer.Bytes(), 0666)
 }
 
 func identifyLockHolders(filename string) (string, error) {

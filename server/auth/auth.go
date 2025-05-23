@@ -5,7 +5,7 @@ import (
 	"crypto/x509"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"strings"
 	"sync"
@@ -505,7 +505,7 @@ func (c *mockHTTPClient) Do(req *http.Request) (*http.Response, error) {
 	a := req.Header.Get("Authorization")
 	if a == "" || a == "Bearer notvalid" {
 		resp.StatusCode = 400
-		resp.Body = ioutil.NopCloser(bytes.NewBuffer(nil))
+		resp.Body = io.NopCloser(bytes.NewBuffer(nil))
 		resp.Status = "400 Unauthorized"
 
 		return resp, nil
@@ -513,17 +513,17 @@ func (c *mockHTTPClient) Do(req *http.Request) (*http.Response, error) {
 	switch req.URL.Path {
 	case "/user":
 		data := "{\"login\":\"testuser\"}"
-		resp.Body = ioutil.NopCloser(bytes.NewBufferString(data))
+		resp.Body = io.NopCloser(bytes.NewBufferString(data))
 		resp.StatusCode = 200
 		return resp, nil
 	case "/user/orgs":
 		data := "[{\"login\":\"testgroup\"}]"
-		resp.Body = ioutil.NopCloser(bytes.NewBufferString(data))
+		resp.Body = io.NopCloser(bytes.NewBufferString(data))
 		resp.StatusCode = 200
 		return resp, nil
 	default:
 		resp.StatusCode = 404
-		resp.Body = ioutil.NopCloser(bytes.NewBuffer(nil))
+		resp.Body = io.NopCloser(bytes.NewBuffer(nil))
 		resp.Status = "404 Not found"
 		return resp, nil
 	}

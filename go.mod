@@ -7,14 +7,14 @@ require (
 	github.com/google/tink/go v1.6.1
 	github.com/gorilla/context v1.1.1
 	github.com/gorilla/mux v1.8.0
-	golang.org/x/crypto v0.17.0
+	golang.org/x/crypto v0.31.0
 	gopkg.in/fsnotify.v1 v1.4.7
 )
 
 require (
 	github.com/fsnotify/fsnotify v1.4.9 // indirect
 	github.com/google/go-cmp v0.5.6 // indirect
-	golang.org/x/sys v0.15.0 // indirect
-	golang.org/x/term v0.15.0 // indirect
+	golang.org/x/sys v0.28.0 // indirect
+	golang.org/x/term v0.27.0 // indirect
 	google.golang.org/protobuf v1.33.0 // indirect
 )

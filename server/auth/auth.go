@@ -75,7 +75,7 @@ func verifyCertificate(r *http.Request, cas *x509.CertPool,
 	timeFunc func() time.Time) (*x509.Certificate, error) {
 	certs := r.TLS.PeerCertificates
 	if len(certs) == 0 {
-		return nil, fmt.Errorf("auth: No peer certs configured")
+		return nil, fmt.Errorf("auth: no peer certs configured")
 	}
 	opts := x509.VerifyOptions{
 		Roots:         cas,
@@ -90,10 +90,10 @@ func verifyCertificate(r *http.Request, cas *x509.CertPool,
 
 	chains, err := certs[0].Verify(opts)
 	if err != nil {
-		return nil, fmt.Errorf("auth: failed to verify client's certificate: " + err.Error())
+		return nil, fmt.Errorf("auth: failed to verify client's certificate: %w", err)
 	}
 	if len(chains) == 0 {
-		return nil, fmt.Errorf("auth: No cert chains could be verified")
+		return nil, fmt.Errorf("auth: no cert chains could be verified")
 	}
 	return certs[0], nil
 }
@@ -192,7 +192,7 @@ func (p *SpiffeProvider) Authenticate(token string, r *http.Request) (knox.Princ
 
 func spiffeToPrincipal(spiffeURIs []string) (knox.Principal, error) {
 	if len(spiffeURIs) == 0 {
-		return nil, fmt.Errorf("auth: no spiffe identity in certificate")
+		return nil, fmt.Errorf("auth: no SPIFFE identity in certificate")
 	}
 	if len(spiffeURIs) > 1 {
 		return nil, fmt.Errorf("auth: more than one service identity specified in certificate")
@@ -200,11 +200,11 @@ func spiffeToPrincipal(spiffeURIs []string) (knox.Principal, error) {
 
 	uri := spiffeURIs[0]
 	if !strings.HasPrefix(uri, "spiffe://") {
-		return nil, fmt.Errorf("auth: service identity was not a valid SPIFFE ID (bad prefix)")
+		return nil, fmt.Errorf("auth: service identity is not a valid SPIFFE ID (bad prefix)")
 	}
 	splits := strings.SplitN(uri[9:], "/", 2)
 	if len(splits) != 2 {
-		return nil, fmt.Errorf("auth: service identity was not a valid SPIFFE ID (bad format)")
+		return nil, fmt.Errorf("auth: service identity is not a valid SPIFFE ID (bad format)")
 	}
 
 	return NewService(splits[0], splits[1]), nil
@@ -299,7 +299,7 @@ func (p *GitHubProvider) getAPI(url, token string, v interface{}) error {
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != 200 {
-		return fmt.Errorf("API request returned status: %s", resp.Status)
+		return fmt.Errorf("api request returned status %s", resp.Status)
 	}
 	decoder := json.NewDecoder(resp.Body)
 	err = decoder.Decode(v)

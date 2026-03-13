@@ -45,7 +45,7 @@ func NewLoginCommand(
 	if !filepath.IsAbs(tokenFileLocation) {
 		currentUser, err := user.Current()
 		if err != nil {
-			fatalf("Error getting OS user:" + err.Error())
+			fatalf("error getting OS user: %v", err)
 		}
 
 		tokenFileLocation = path.Join(currentUser.HomeDir, tokenFileLocation)
@@ -83,7 +83,7 @@ func runLogin(
 	var username string
 	u, err := user.Current()
 	if err != nil {
-		return &ErrorStatus{fmt.Errorf("Error getting OS user: %s", err.Error()), false}
+		return &ErrorStatus{fmt.Errorf("error getting OS user: %w", err), false}
 	}
 	switch len(args) {
 	case 0:
@@ -91,13 +91,13 @@ func runLogin(
 	case 1:
 		username = args[0]
 	default:
-		return &ErrorStatus{fmt.Errorf("Invalid arguments. See 'knox login -h'"), false}
+		return &ErrorStatus{fmt.Errorf("invalid arguments; see 'knox login -h'"), false}
 	}
 
 	fmt.Println("Please enter your password:")
 	password, err := terminal.ReadPassword(int(os.Stdin.Fd()))
 	if err != nil {
-		return &ErrorStatus{fmt.Errorf("Problem getting password: %s", err.Error()), false}
+		return &ErrorStatus{fmt.Errorf("problem getting password: %w", err), false}
 	}
 
 	resp, err := http.PostForm(oauthTokenEndpoint,
@@ -109,24 +109,24 @@ func runLogin(
 		})
 	if err != nil {
 		// this is not Knox server error, thus assigning serverError as false
-		return &ErrorStatus{fmt.Errorf("Error connecting to auth: %s", err.Error()), false}
+		return &ErrorStatus{fmt.Errorf("error connecting to auth: %w", err), false}
 	}
 	var authResp authTokenResp
 	data, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return &ErrorStatus{fmt.Errorf("Failed to read data: %s", err.Error()), false}
+		return &ErrorStatus{fmt.Errorf("failed to read data: %w", err), false}
 	}
 	err = json.Unmarshal(data, &authResp)
 	if err != nil {
-		return &ErrorStatus{fmt.Errorf("Unexpected response from auth" + err.Error() + "data: " + string(data)), false}
+		return &ErrorStatus{fmt.Errorf("unexpected response from auth: %w, data: %s", err, string(data)), false}
 	}
 	if authResp.Error != "" {
-		return &ErrorStatus{fmt.Errorf("Fail to authenticate: %q", authResp.Error), false}
+		return &ErrorStatus{fmt.Errorf("failed to authenticate: %q", authResp.Error), false}
 	}
 
 	err = os.WriteFile(tokenFileLocation, data, 0600)
 	if err != nil {
-		return &ErrorStatus{fmt.Errorf("Failed to write auth data to file: %s", err.Error()), false}
+		return &ErrorStatus{fmt.Errorf("failed to write auth data to file: %w", err), false}
 	}
 
 	return nil

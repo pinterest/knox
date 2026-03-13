@@ -28,7 +28,7 @@ func runGetKeys(cmd *Command, args []string) *ErrorStatus {
 	}
 	l, err := cli.GetKeys(m)
 	if err != nil {
-		return &ErrorStatus{fmt.Errorf("Error getting keys: %s", err.Error()), true}
+		return &ErrorStatus{fmt.Errorf("error getting keys: %w", err), true}
 	}
 	for _, k := range l {
 		fmt.Println(k)

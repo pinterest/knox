@@ -19,12 +19,12 @@ See also: knox create
 
 func runDelete(cmd *Command, args []string) *ErrorStatus {
 	if len(args) != 1 {
-		return &ErrorStatus{fmt.Errorf("create takes exactly one argument. See 'knox help delete'"), false}
+		return &ErrorStatus{fmt.Errorf("delete takes exactly one argument; see 'knox help delete'"), false}
 	}
 
 	err := cli.DeleteKey(args[0])
 	if err != nil {
-		return &ErrorStatus{fmt.Errorf("Error deleting key: %s", err.Error()), true}
+		return &ErrorStatus{fmt.Errorf("error deleting key: %w", err), true}
 	}
 	fmt.Printf("Successfully deleted key\n")
 	return nil

@@ -35,7 +35,7 @@ var addTinkKeyset = cmdAdd.Flag.String("key-template", "", "name of a knox-suppo
 
 func runAdd(cmd *Command, args []string) *ErrorStatus {
 	if len(args) != 1 {
-		return &ErrorStatus{fmt.Errorf("add takes only one argument. See 'knox help add'"), false}
+		return &ErrorStatus{fmt.Errorf("add takes only one argument; see 'knox help add'"), false}
 	}
 	keyID := args[0]
 	var data []byte
@@ -50,7 +50,7 @@ func runAdd(cmd *Command, args []string) *ErrorStatus {
 	}
 	versionID, err := cli.AddVersion(keyID, data)
 	if err != nil {
-		return &ErrorStatus{fmt.Errorf("Error adding version: %s", err.Error()), true}
+		return &ErrorStatus{fmt.Errorf("error adding version: %w", err), true}
 	}
 	fmt.Printf("Added key version %d\n", versionID)
 	return nil
@@ -65,7 +65,7 @@ func getDataWithTemplate(templateName string, keyID string) ([]byte, error) {
 	// get all versions (primary, active, inactive) of this knox identifier
 	allVersions, err := cli.NetworkGetKeyWithStatus(keyID, knox.Inactive)
 	if err != nil {
-		return nil, fmt.Errorf("error getting key: %s", err.Error())
+		return nil, fmt.Errorf("error getting key: %w", err)
 	}
 	return addNewTinkKeyset(tinkKeyTemplates[templateName].templateFunc, allVersions.VersionList)
 }

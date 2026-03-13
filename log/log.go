@@ -94,7 +94,7 @@ type Logger struct {
 func New(out io.Writer, prefix string, flag int) *Logger {
 	hostname, err := os.Hostname()
 	if err != nil {
-		panic("Hostname is required:" + err.Error())
+		panic(fmt.Sprintf("hostname is required: %v", err))
 	}
 
 	return &Logger{out: out, prefix: prefix, flag: flag, host: hostname}

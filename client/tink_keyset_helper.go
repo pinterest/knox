@@ -76,7 +76,7 @@ func createNewTinkKeyset(templateFunc func() *tinkpb.KeyTemplate) ([]byte, error
 	// Creates a keyset handle that contains a single fresh key
 	keysetHandle, err := keyset.NewHandle(templateFunc())
 	if keysetHandle == nil || err != nil {
-		return nil, fmt.Errorf("cannot get tink keyset handle: %v", err)
+		return nil, fmt.Errorf("cannot get tink keyset handle: %w", err)
 	}
 	return convertTinkKeysetHandleToBytes(keysetHandle)
 }
@@ -88,7 +88,7 @@ func convertTinkKeysetHandleToBytes(keysetHandle *keyset.Handle) ([]byte, error)
 	// To write cleartext keyset handle, must use package "insecurecleartextkeyset"
 	err := insecurecleartextkeyset.Write(keysetHandle, writer)
 	if err != nil {
-		return nil, fmt.Errorf("cannot write tink keyset: %v", err)
+		return nil, fmt.Errorf("cannot write tink keyset: %w", err)
 	}
 	return bytesBuffer.Bytes(), nil
 }
@@ -112,7 +112,7 @@ func addNewTinkKeyset(templateFunc func() *tinkpb.KeyTemplate, knoxVersionList k
 	for isDuplicated {
 		keysetHandle, err = keyset.NewHandle(templateFunc())
 		if keysetHandle == nil || err != nil {
-			return nil, fmt.Errorf("cannot get tink keyset handle: %v", err)
+			return nil, fmt.Errorf("cannot get tink keyset handle: %w", err)
 		}
 		newTinkKeyID := keysetHandle.KeysetInfo().PrimaryKeyId
 		_, isDuplicated = existingTinkKeysID[newTinkKeyID]
@@ -126,7 +126,7 @@ func readTinkKeysetFromBytes(data []byte) (*tinkpb.Keyset, error) {
 	bytesBuffer.Write(data)
 	tinkKeyset, err := keyset.NewBinaryReader(bytesBuffer).Read()
 	if err != nil {
-		return nil, fmt.Errorf("unexpected error reading tink keyset: %v", err)
+		return nil, fmt.Errorf("unexpected error reading tink keyset: %w", err)
 	}
 	return tinkKeyset, nil
 }
@@ -171,7 +171,7 @@ func convertCleartextTinkKeysetToHandle(cleartextTinkKeyset *tinkpb.Keyset) (*ke
 	// To get keyset handle from cleartext keyset, must use package "insecurecleartextkeyset"
 	keysetHandle, err := insecurecleartextkeyset.Read(reader)
 	if err != nil {
-		return nil, fmt.Errorf("cannot get tink keyset handle: %v", err)
+		return nil, fmt.Errorf("cannot get tink keyset handle: %w", err)
 	}
 	return keysetHandle, nil
 }

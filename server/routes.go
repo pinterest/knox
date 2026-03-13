@@ -476,9 +476,9 @@ func putVersionsHandler(m KeyManager, principal knox.Principal, parameters map[s
 func authorizeRequest(key *knox.Key, principal knox.Principal, access knox.AccessType) (allow bool, err error) {
 	defer func() {
 		if r := recover(); r != nil {
-			log.Printf("Recovered from panic in access callback: %v", r)
+			log.Printf("recovered from panic in access callback: %v", r)
 
-			err = fmt.Errorf("Recovered from panic in access callback: %v", r)
+			err = fmt.Errorf("recovered from panic in access callback: %v", r)
 		}
 	}()
 

@@ -57,27 +57,27 @@ var updateAccessServicePrefix = cmdUpdateAccess.Flag.Bool("N", false, "")
 func runUpdateAccess(cmd *Command, args []string) *ErrorStatus {
 	if *updateAccessACL != "" {
 		if len(args) != 1 {
-			return &ErrorStatus{fmt.Errorf("access takes one argument when used with --acl. See 'knox help access'"), false}
+			return &ErrorStatus{fmt.Errorf("access takes one argument when used with --acl; see 'knox help access'"), false}
 		}
 		keyID := args[0]
 		b, err := os.ReadFile(*updateAccessACL)
 		if err != nil {
-			return &ErrorStatus{fmt.Errorf("Could not read acl file: %s", err.Error()), false}
+			return &ErrorStatus{fmt.Errorf("could not read acl file: %w", err), false}
 		}
 		acl := []knox.Access{}
 		err = json.Unmarshal(b, &acl)
 		if err != nil {
-			return &ErrorStatus{fmt.Errorf("Could not decode access list properly: %s", err.Error()), false}
+			return &ErrorStatus{fmt.Errorf("could not decode access list properly: %w", err), false}
 		}
 		err = cli.PutAccess(keyID, acl...)
 		if err != nil {
-			return &ErrorStatus{fmt.Errorf("Failed to update access: %s", err.Error()), true}
+			return &ErrorStatus{fmt.Errorf("failed to update access: %w", err), true}
 		}
 		fmt.Println("Successfully updated Access")
 		return nil
 	}
 	if len(args) != 2 {
-		return &ErrorStatus{fmt.Errorf("access takes exactly two arguments. See 'knox help access'"), false}
+		return &ErrorStatus{fmt.Errorf("access takes exactly two arguments; see 'knox help access'"), false}
 	}
 	keyID := args[0]
 	principal := args[1]
@@ -93,7 +93,7 @@ func runUpdateAccess(cmd *Command, args []string) *ErrorStatus {
 	case *updateAccessAdmin:
 		access.AccessType = knox.Admin
 	default:
-		return &ErrorStatus{fmt.Errorf("access requires {-n,-r,-w,-a}. See 'knox help access'"), false}
+		return &ErrorStatus{fmt.Errorf("access requires {-n,-r,-w,-a}; see 'knox help access'"), false}
 	}
 	switch {
 	case *updateAccessMachine:
@@ -109,11 +109,11 @@ func runUpdateAccess(cmd *Command, args []string) *ErrorStatus {
 	case *updateAccessServicePrefix:
 		access.Type = knox.ServicePrefix
 	default:
-		return &ErrorStatus{fmt.Errorf("access requires {-M|-U|-G|-P|-S|-N}. See 'knox help access'"), false}
+		return &ErrorStatus{fmt.Errorf("access requires {-M|-U|-G|-P|-S|-N}; see 'knox help access'"), false}
 	}
 	err := cli.PutAccess(keyID, access)
 	if err != nil {
-		return &ErrorStatus{fmt.Errorf("Failed to update access: %s", err.Error()), true}
+		return &ErrorStatus{fmt.Errorf("failed to update access: %w", err), true}
 	}
 	fmt.Println("Successfully updated Access")
 	return nil

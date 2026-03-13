@@ -2,6 +2,7 @@ package knox
 
 import (
 	"bytes"
+	"context"
 	"crypto/tls"
 	"encoding/base64"
 	"encoding/json"
@@ -55,12 +56,12 @@ func (c *fileClient) update() error {
 	var key Key
 	f, err := os.Open("/var/lib/knox/v0/keys/" + c.keyID)
 	if err != nil {
-		return fmt.Errorf("Knox key file err: %s", err.Error())
+		return fmt.Errorf("knox key file err: %w", err)
 	}
 	defer f.Close()
 	err = json.NewDecoder(f).Decode(&key)
 	if err != nil {
-		return fmt.Errorf("Knox json decode err: %s", err.Error())
+		return fmt.Errorf("knox json decode err: %w", err)
 	}
 	c.setValues(&key)
 	return nil
@@ -73,8 +74,8 @@ func (c *fileClient) setValues(key *Key) {
 	c.primary = string(key.VersionList.GetPrimary().Data)
 	ks := key.VersionList.GetActive()
 	c.active = make([]string, len(ks))
-	for _, kv := range ks {
-		c.active = append(c.active, string(kv.Data))
+	for i, kv := range ks {
+		c.active[i] = string(kv.Data)
 	}
 }
 
@@ -107,14 +108,14 @@ func NewFileClient(keyID string) (Client, error) {
 	}
 	err = json.Unmarshal(jsonKey, &key)
 	if err != nil {
-		return nil, fmt.Errorf("Knox json decode err: %s", err.Error())
+		return nil, fmt.Errorf("knox json decode err: %w", err)
 	}
 	c.setValues(&key)
 	go func() {
 		for range time.Tick(refresh) {
 			err := c.update()
 			if err != nil {
-				log.Println("Failed to update knox key ", err.Error())
+				log.Println("failed to update knox key:", err)
 			}
 		}
 	}()
@@ -187,7 +188,9 @@ type APIClient interface {
 	AddVersion(keyID string, data []byte) (uint64, error)
 	UpdateVersion(keyID, versionID string, status VersionStatus) error
 	CacheGetKey(keyID string) (*Key, error)
+	CacheGetKeyWithContext(ctx context.Context, keyID string) (*Key, error)
 	NetworkGetKey(keyID string) (*Key, error)
+	NetworkGetKeyWithContext(ctx context.Context, keyID string) (*Key, error)
 	GetKeyWithStatus(keyID string, status VersionStatus) (*Key, error)
 	CacheGetKeyWithStatus(keyID string, status VersionStatus) (*Key, error)
 	NetworkGetKeyWithStatus(keyID string, status VersionStatus) (*Key, error)
@@ -220,15 +223,36 @@ func NewClient(host string, client HTTP, authHandlers []AuthHandler, keyFolder, 
 
 // CacheGetKey gets the key from file system cache.
 func (c *HTTPClient) CacheGetKey(keyID string) (*Key, error) {
+	return c.CacheGetKeyWithContext(context.Background(), keyID)
+}
+
+// CacheGetKeyWithContext gets the key from file system cache with context support.
+func (c *HTTPClient) CacheGetKeyWithContext(ctx context.Context, keyID string) (*Key, error) {
 	if c.KeyFolder == "" {
 		return nil, fmt.Errorf("no folder set for cached key")
 	}
-	path := path.Join(c.KeyFolder, keyID)
-	b, err := os.ReadFile(path)
+
+	// Check context before file operations
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	default:
+	}
+
+	keyPath := path.Join(c.KeyFolder, keyID)
+	b, err := os.ReadFile(keyPath)
 	if err != nil {
 		return nil, err
 	}
-	k := Key{Path: path}
+
+	// Check context after file read but before JSON unmarshal
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	default:
+	}
+
+	k := Key{Path: keyPath}
 	err = json.Unmarshal(b, &k)
 	if err != nil {
 		return nil, err
@@ -245,6 +269,11 @@ func (c *HTTPClient) CacheGetKey(keyID string) (*Key, error) {
 // NetworkGetKey gets a knox key by keyID and only uses network without the caches.
 func (c *HTTPClient) NetworkGetKey(keyID string) (*Key, error) {
 	return c.UncachedClient.NetworkGetKey(keyID)
+}
+
+// NetworkGetKeyWithContext gets a knox key by keyID and only uses network without the caches, with context support.
+func (c *HTTPClient) NetworkGetKeyWithContext(ctx context.Context, keyID string) (*Key, error) {
+	return c.UncachedClient.NetworkGetKeyWithContext(ctx, keyID)
 }
 
 // GetKey gets a knox key by keyID.
@@ -364,8 +393,13 @@ func NewUncachedClient(host string, client HTTP, authHandlers []AuthHandler, ver
 
 // NetworkGetKey gets a knox key by keyID and only uses network without the caches.
 func (c *UncachedHTTPClient) NetworkGetKey(keyID string) (*Key, error) {
+	return c.NetworkGetKeyWithContext(context.Background(), keyID)
+}
+
+// NetworkGetKeyWithContext gets a knox key by keyID and only uses network without the caches, with context support.
+func (c *UncachedHTTPClient) NetworkGetKeyWithContext(ctx context.Context, keyID string) (*Key, error) {
 	key := &Key{}
-	err := c.getHTTPData("GET", "/v0/keys/"+keyID+"/", nil, key)
+	err := c.getHTTPDataWithContext(ctx, "GET", "/v0/keys/"+keyID+"/", nil, key)
 	if err != nil {
 		return nil, err
 	}
@@ -380,7 +414,12 @@ func (c *UncachedHTTPClient) NetworkGetKey(keyID string) (*Key, error) {
 
 // CacheGetKey acts same as NetworkGetKey for UncachedHTTPClient.
 func (c *UncachedHTTPClient) CacheGetKey(keyID string) (*Key, error) {
-	return c.NetworkGetKey(keyID)
+	return c.CacheGetKeyWithContext(context.Background(), keyID)
+}
+
+// CacheGetKeyWithContext acts same as NetworkGetKeyWithContext for UncachedHTTPClient.
+func (c *UncachedHTTPClient) CacheGetKeyWithContext(ctx context.Context, keyID string) (*Key, error) {
+	return c.NetworkGetKeyWithContext(ctx, keyID)
 }
 
 // GetKey gets a knox key by keyID.
@@ -494,6 +533,10 @@ func (c *UncachedHTTPClient) getClient() (HTTP, error) {
 }
 
 func (c *UncachedHTTPClient) getHTTPData(method string, path string, body url.Values, data interface{}) error {
+	return c.getHTTPDataWithContext(context.Background(), method, path, body, data)
+}
+
+func (c *UncachedHTTPClient) getHTTPDataWithContext(ctx context.Context, method string, path string, body url.Values, data interface{}) error {
 	if len(c.AuthHandlers) == 0 {
 		return errNoAuth
 	}
@@ -502,6 +545,13 @@ func (c *UncachedHTTPClient) getHTTPData(method string, path string, body url.Va
 	attemptedAuthTypes := []string{}
 
 	for _, authHandler := range c.AuthHandlers {
+		// Check context before each auth handler attempt
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
+
 		authToken, authType, clientOverride := authHandler()
 		if authToken == "" {
 			continue
@@ -511,7 +561,7 @@ func (c *UncachedHTTPClient) getHTTPData(method string, path string, body url.Va
 
 		// Create the request per authHandler to prevent body from being reused between requests.
 		// This is due to the body being non-reusable after the first read.
-		r, err := http.NewRequest(method, "https://"+c.Host+path, bytes.NewBufferString(body.Encode()))
+		r, err := http.NewRequestWithContext(ctx, method, "https://"+c.Host+path, bytes.NewBufferString(body.Encode()))
 		if err != nil {
 			return err
 		}
@@ -538,6 +588,13 @@ func (c *UncachedHTTPClient) getHTTPData(method string, path string, body url.Va
 		resp.Data = data
 		// Contains retry logic if we decode a 500 error.
 		for i := 1; i <= maxRetryAttempts; i++ {
+			// Check context before each retry attempt
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			default:
+			}
+
 			err = getHTTPResp(cli, r, resp)
 			if err != nil {
 				return err
@@ -550,9 +607,20 @@ func (c *UncachedHTTPClient) getHTTPData(method string, path string, body url.Va
 					// If the failure is non authentication related, retry if we got a 500.
 					if (resp.Code != InternalServerErrorCode) || (i == maxRetryAttempts) {
 						// If we get a 500, we need to retry the request.
-						return fmt.Errorf(resp.Message)
+						return fmt.Errorf("%s", resp.Message)
 					}
-					time.Sleep(GetBackoffDuration(i))
+
+					// Check context before sleeping
+					backoffDuration := GetBackoffDuration(i)
+					timer := time.NewTimer(backoffDuration)
+					select {
+					case <-ctx.Done():
+						timer.Stop()
+						return ctx.Err()
+					case <-timer.C:
+						timer.Stop()
+						// Continue to retry
+					}
 				}
 			} else {
 				// If we got a successful response, we can return the data.

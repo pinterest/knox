@@ -231,7 +231,7 @@ func TestGetTinkKeysetHandleFromKnoxVersionList(t *testing.T) {
 	dummyVersionList, tinkKeyIDtoKnoxVersionID := getDummyKnoxVersionList(1000, keyTemplate)
 	keysetHandle, mapping, err := getTinkKeysetHandleFromKnoxVersionList(dummyVersionList)
 	if err != nil {
-		t.Fatalf(err.Error())
+		t.Fatalf("%s", err.Error())
 	}
 	if _, err := aead.New(keysetHandle); err != nil {
 		t.Fatalf("cannot get primitive from generated keyset handle: %s", err)
@@ -284,7 +284,7 @@ func TestGetKeysetInfoFromTinkKeysetHandle(t *testing.T) {
 	}
 	keysetInfoForPrint, err := json.MarshalIndent(keysetInfo, "", "  ")
 	if err != nil {
-		t.Fatalf(err.Error())
+		t.Fatalf("%s", err.Error())
 	}
 	expected := string(keysetInfoForPrint)
 	got, err := getKeysetInfoFromTinkKeysetHandle(keysetHandle, tinkKeyIDToKnoxVersionID)

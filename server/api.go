@@ -36,9 +36,9 @@ type httpErrResp struct {
 var HTTPErrMap = map[int]*httpErrResp{
 	knox.NoKeyIDCode:                   {http.StatusBadRequest, "Missing Key ID"},
 	knox.InternalServerErrorCode:       {http.StatusInternalServerError, "Internal Server Error"},
-	knox.KeyIdentifierExistsCode:       {http.StatusBadRequest, "Key identifer exists"},
+	knox.KeyIdentifierExistsCode:       {http.StatusBadRequest, "Key identifier exists"},
 	knox.KeyVersionDoesNotExistCode:    {http.StatusNotFound, "Key version does not exist"},
-	knox.KeyIdentifierDoesNotExistCode: {http.StatusNotFound, "Key identifer does not exist"},
+	knox.KeyIdentifierDoesNotExistCode: {http.StatusNotFound, "Key identifier does not exist"},
 	knox.UnauthenticatedCode:           {http.StatusUnauthorized, "User or machine is not authenticated"},
 	knox.UnauthorizedCode:              {http.StatusForbidden, "User or machine not authorized"},
 	knox.NotYetImplementedCode:         {http.StatusNotImplemented, "Not yet implemented"},
@@ -68,7 +68,7 @@ func GetRouterFromKeyManager(
 	for _, route := range allRoutes {
 		if _, routeExists := existingRouteIds[route.Id]; routeExists {
 			return nil, fmt.Errorf(
-				"There are ID conflicts for the route with ID: '%v'",
+				"there are ID conflicts for the route with ID: '%v'",
 				route.Id,
 			)
 		}
@@ -81,7 +81,7 @@ func GetRouterFromKeyManager(
 		} else {
 			if conflictingRoute, pathExists := childMap[route.Path]; pathExists {
 				return nil, fmt.Errorf(
-					"There are Method/Path conflicts for the following Route IDs: ('%v' and '%v')",
+					"there are Method/Path conflicts for the following Route IDs: ('%v' and '%v')",
 					conflictingRoute.Id, route.Id,
 				)
 			}
@@ -241,7 +241,7 @@ func WriteErr(apiErr *HTTPError) http.HandlerFunc {
 		resp := new(knox.Response)
 		hostname, err := os.Hostname()
 		if err != nil {
-			panic("Hostname is required:" + err.Error())
+			panic(fmt.Sprintf("hostname is required: %v", err))
 		}
 		resp.Host = hostname
 		resp.Timestamp = time.Now().UnixNano()
@@ -254,7 +254,7 @@ func WriteErr(apiErr *HTTPError) http.HandlerFunc {
 
 		if err := json.NewEncoder(w).Encode(resp); err != nil {
 			// It is unclear what to do here since the server failed to write the response.
-			log.Println(err.Error())
+			log.Println(err)
 		}
 	}
 }
@@ -268,14 +268,14 @@ func WriteData(w http.ResponseWriter, data interface{}) {
 	r.Status = "ok"
 	hostname, err := os.Hostname()
 	if err != nil {
-		panic("Hostname is required:" + err.Error())
+		panic(fmt.Sprintf("hostname is required: %v", err))
 	}
 	r.Host = hostname
 	r.Timestamp = time.Now().UnixNano()
 	r.Data = data
 	if err := json.NewEncoder(w).Encode(r); err != nil {
 		// It is unclear what to do here since the server failed to write the response.
-		log.Println(err.Error())
+		log.Println(err)
 	}
 }
 

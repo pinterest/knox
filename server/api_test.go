@@ -326,7 +326,7 @@ func TestDuplicateRouteId(t *testing.T) {
 	if err == nil {
 		t.Fatal("Expected an error when two routes were provided with duplicate IDs")
 	}
-	expectedErrorMessage := fmt.Sprintf("There are ID conflicts for the route with ID: '%v'", "getkeys")
+	expectedErrorMessage := fmt.Sprintf("there are ID conflicts for the route with ID: '%v'", "getkeys")
 
 	if err.Error() != expectedErrorMessage {
 		t.Fatalf(
@@ -358,7 +358,7 @@ func TestDuplicateMethodAndPath(t *testing.T) {
 		t.Fatal("Expected an error when two routes were provided with duplicate IDs")
 	}
 	expectedErrorMessage := fmt.Sprintf(
-		"There are Method/Path conflicts for the following Route IDs: ('%v' and '%v')",
+		"there are Method/Path conflicts for the following Route IDs: ('%v' and '%v')",
 		"getkeys", "a-unique-id")
 
 	if err.Error() != expectedErrorMessage {

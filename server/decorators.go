@@ -221,7 +221,7 @@ func Authentication(providers []auth.Provider, matcher ProviderMatcher) func(htt
 		return func(w http.ResponseWriter, r *http.Request) {
 			var defaultPrincipal knox.Principal
 			allPrincipals := map[string]knox.Principal{}
-			errReturned := fmt.Errorf("No matching authentication providers found")
+			errReturned := fmt.Errorf("no matching authentication providers found")
 
 			for _, p := range providers {
 				if match, payload := matcher(p, r); match {

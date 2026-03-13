@@ -23,14 +23,14 @@ See also: knox reactivate, knox deactivate
 
 func runPromote(cmd *Command, args []string) *ErrorStatus {
 	if len(args) != 2 {
-		return &ErrorStatus{fmt.Errorf("promote takes exactly two argument. See 'knox help promote'"), false}
+		return &ErrorStatus{fmt.Errorf("promote takes exactly two arguments; see 'knox help promote'"), false}
 	}
 	keyID := args[0]
 	versionID := args[1]
 
 	err := cli.UpdateVersion(keyID, versionID, knox.Primary)
 	if err != nil {
-		return &ErrorStatus{fmt.Errorf("Error promoting version: %s", err.Error()), true}
+		return &ErrorStatus{fmt.Errorf("error promoting version: %w", err), true}
 	}
 	fmt.Printf("Promoted %s successfully.\n", versionID)
 	return nil

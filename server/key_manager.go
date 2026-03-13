@@ -62,7 +62,7 @@ func (m *keyManager) GetKey(id string, status knox.VersionStatus) (*knox.Key, er
 	}
 	k, err := m.cryptor.Decrypt(encK)
 	if err != nil {
-		return nil, fmt.Errorf("Error decrypting key: %s", err.Error())
+		return nil, fmt.Errorf("error decrypting key: %w", err)
 	}
 	switch status {
 	case knox.Inactive:
@@ -117,7 +117,7 @@ func (m *keyManager) AddVersion(id string, v *knox.KeyVersion) error {
 
 	k, err := m.cryptor.Decrypt(encK)
 	if err != nil {
-		return fmt.Errorf("Error decrypting key: %s", err.Error())
+		return fmt.Errorf("error decrypting key: %w", err)
 	}
 
 	k.VersionList = append(k.VersionList, *v)
@@ -145,7 +145,7 @@ func (m *keyManager) UpdateVersion(keyID string, versionID uint64, s knox.Versio
 	}
 	k, err := m.cryptor.Decrypt(encK)
 	if err != nil {
-		return fmt.Errorf("Error decrypting key: %s", err.Error())
+		return fmt.Errorf("error decrypting key: %w", err)
 	}
 	// Validate the change makes sense
 	kvl, err := k.VersionList.Update(versionID, s)

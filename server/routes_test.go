@@ -672,7 +672,7 @@ func TestAuthorizeRequest(t *testing.T) {
 				panic("intentional panic")
 			},
 			ExpectedAuthorized: false,
-			ExpectedError:      fmt.Errorf("Recovered from panic in access callback: intentional panic"),
+			ExpectedError:      fmt.Errorf("recovered from panic in access callback: intentional panic"),
 		},
 	}
 

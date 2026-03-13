@@ -37,7 +37,7 @@ var createTinkKeyset = cmdCreate.Flag.String("key-template", "", "name of a knox
 
 func runCreate(cmd *Command, args []string) *ErrorStatus {
 	if len(args) != 1 {
-		return &ErrorStatus{fmt.Errorf("create takes exactly one argument. See 'knox help create'"), false}
+		return &ErrorStatus{fmt.Errorf("create takes exactly one argument; see 'knox help create'"), false}
 	}
 	keyID := args[0]
 	var data []byte
@@ -59,7 +59,7 @@ func runCreate(cmd *Command, args []string) *ErrorStatus {
 	acl := knox.ACL{}
 	versionID, err := cli.CreateKey(keyID, data, acl)
 	if err != nil {
-		return &ErrorStatus{fmt.Errorf("Error adding version: %s", err.Error()), true}
+		return &ErrorStatus{fmt.Errorf("error adding version: %w", err), true}
 	}
 	fmt.Printf("Created key with initial version %d\n", versionID)
 	return nil
@@ -69,7 +69,7 @@ func readDataFromStdin() ([]byte, error) {
 	fmt.Println("Reading from stdin...")
 	data, err := io.ReadAll(os.Stdin)
 	if err != nil {
-		return data, fmt.Errorf("problem reading key data: %s", err.Error())
+		return data, fmt.Errorf("problem reading key data: %w", err)
 	}
 	return data, nil
 }

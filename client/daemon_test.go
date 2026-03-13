@@ -105,6 +105,90 @@ func TearDownTest(dir string) {
 	os.RemoveAll(dir)
 }
 
+func TestChmodIfNeeded(t *testing.T) {
+	dir, err := os.MkdirTemp("", "knox-chmod-test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(dir)
+
+	tests := []struct {
+		name     string
+		setup    func() string // returns path to chmod
+		wantPerm os.FileMode
+	}{
+		{"skips when dir perms match", func() string {
+			os.Chmod(dir, 0777)
+			return dir
+		}, 0777},
+		{"skips when file perms match", func() string {
+			f := path.Join(dir, "f")
+			os.WriteFile(f, []byte{}, 0666)
+			return f
+		}, 0666},
+		{"chmods when perms differ", func() string {
+			f := path.Join(dir, "g")
+			os.WriteFile(f, []byte{}, 0600)
+			return f
+		}, 0666},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			path := tt.setup()
+			want := tt.wantPerm
+			if want == 0666 {
+				err = chmodIfNeeded(path, defaultFilePermission)
+			} else {
+				err = chmodIfNeeded(path, defaultDirPermission)
+			}
+			if err != nil {
+				t.Fatalf("chmodIfNeeded: %v", err)
+			}
+			info, _ := os.Stat(path)
+			if got := info.Mode().Perm(); got != want {
+				t.Errorf("perms: got %o, want %o", got, want)
+			}
+		})
+	}
+}
+
+func TestEnsureDirExists(t *testing.T) {
+	dir, err := os.MkdirTemp("", "knox-ensure-test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(dir)
+
+	tests := []struct {
+		name    string
+		setup   func() string
+		wantErr bool
+	}{
+		{"creates when missing", func() string { return path.Join(dir, "a", "b") }, false},
+		{"succeeds when already exists", func() string {
+			target := path.Join(dir, "existing")
+			os.MkdirAll(target, 0700)
+			return target
+		}, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			target := tt.setup()
+			err := ensureDirExists(target, 0755)
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("ensureDirExists: err=%v, wantErr=%v", err, tt.wantErr)
+			}
+			info, err := os.Stat(target)
+			if err != nil {
+				t.Fatalf("stat: %v", err)
+			}
+			if !info.IsDir() {
+				t.Error("path is not a directory")
+			}
+		})
+	}
+}
+
 func TestProcessKey(t *testing.T) {
 	params, dir, d := setUpTest(t)
 	defer TearDownTest(dir)

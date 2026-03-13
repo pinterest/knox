@@ -122,40 +122,60 @@ func (d *daemon) loop(refresh time.Duration) {
 	}
 }
 
-func (d *daemon) initialize() error {
-	err := os.MkdirAll(d.dir, defaultDirPermission)
+// chmodIfNeeded sets mode on path only if it differs from the current mode.
+// This avoids "operation not permitted" when running as non-root when permissions are already correct.
+func chmodIfNeeded(path string, want os.FileMode) error {
+	info, err := os.Stat(path)
 	if err != nil {
+		return err
+	}
+	if info.Mode().Perm() == want.Perm() {
+		return nil
+	}
+	return os.Chmod(path, want)
+}
+
+// ensureDirExists creates path as a directory with perm, or returns nil if it already exists.
+// When running as non-root (e.g. in Kubernetes), the directory may have been created by an
+// init container; if MkdirAll fails with permission denied, we still succeed when the path exists.
+func ensureDirExists(path string, perm os.FileMode) error {
+	err := os.MkdirAll(path, perm)
+	if err == nil {
+		return nil
+	}
+	info, statErr := os.Stat(path)
+	if statErr == nil && info.IsDir() {
+		return nil
+	}
+	return err
+}
+
+func (d *daemon) initialize() error {
+	if err := ensureDirExists(d.dir, defaultDirPermission); err != nil {
 		return fmt.Errorf("Failed to initialize /var/lib/knox (run 'sudo mkdir /var/lib/knox'?): %s", err.Error())
 	}
 
-	// Need to chmod due to a umask set on masterless puppet machines
-	err = os.Chmod(d.dir, defaultDirPermission)
-	if err != nil {
+	// Need to chmod due to a umask set on masterless puppet machines (skip if already correct for non-root)
+	if err := chmodIfNeeded(d.dir, defaultDirPermission); err != nil {
 		return fmt.Errorf("Failed to open up directory permissions: %s", err.Error())
 	}
-	err = os.MkdirAll(d.keyDir(), defaultDirPermission)
-	if err != nil {
+	if err := ensureDirExists(d.keyDir(), defaultDirPermission); err != nil {
 		return fmt.Errorf("Failed to make key folders: %s", err.Error())
 	}
 
-	// Need to chmod due to a umask set on masterless puppet machines
-	err = os.Chmod(d.keyDir(), defaultDirPermission)
-	if err != nil {
+	if err := chmodIfNeeded(d.keyDir(), defaultDirPermission); err != nil {
 		return fmt.Errorf("Failed to open up directory permissions: %s", err.Error())
 	}
-	_, err = os.Stat(d.registerFilename())
+	_, err := os.Stat(d.registerFilename())
 	if os.IsNotExist(err) {
-		err := os.WriteFile(d.registerFilename(), []byte{}, defaultFilePermission)
-		if err != nil {
+		if err := os.WriteFile(d.registerFilename(), []byte{}, defaultFilePermission); err != nil {
 			return fmt.Errorf("Failed to initialize registered key file: %s", err.Error())
 		}
 	} else if err != nil {
 		return err
 	}
 
-	// Need to chmod due to a umask set on masterless puppet machines
-	err = os.Chmod(d.registerFilename(), defaultFilePermission)
-	if err != nil {
+	if err := chmodIfNeeded(d.registerFilename(), defaultFilePermission); err != nil {
 		return fmt.Errorf("Failed to open up register file permissions: %s", err.Error())
 	}
 	d.registerKeyFile = NewKeysFile(d.registerFilename())
@@ -317,8 +337,7 @@ func (d daemon) processKey(keyID string) error {
 		return fmt.Errorf("Error renaming key %s temporary file: %s", keyID, err.Error())
 	}
 
-	err = os.Chmod(d.keyFilename(keyID), defaultFilePermission)
-	if err != nil {
+	if err = chmodIfNeeded(d.keyFilename(keyID), defaultFilePermission); err != nil {
 		return fmt.Errorf("Failed to open up key file permissions: %s", err.Error())
 	}
 	return nil

@@ -160,6 +160,23 @@ func TestPostKeys(t *testing.T) {
 	}
 }
 
+func TestPostKeysServicePrincipal(t *testing.T) {
+	m, _ := makeDB()
+	svc := auth.NewService("pin220.com", "k8s/soxpiispinner/snowflake")
+	_, err := postKeysHandler(m, svc, map[string]string{"id": "svc_key1", "data": "MQ=="})
+	if err != nil {
+		t.Fatalf("Service principal should be allowed to create keys, got: %+v", err)
+	}
+	_, err = postKeysHandler(m, svc, map[string]string{"id": "svc_key2", "data": "MQ==", "acl": "[]"})
+	if err != nil {
+		t.Fatalf("Service principal should be allowed to create keys with empty ACL, got: %+v", err)
+	}
+	_, err = postKeysHandler(m, svc, map[string]string{"id": "svc_key1", "data": "MQ=="})
+	if err == nil {
+		t.Fatal("Expected err for duplicate key")
+	}
+}
+
 func TestGetKey(t *testing.T) {
 	m, _ := makeDB()
 	machine := auth.NewMachine("MrRoboto")

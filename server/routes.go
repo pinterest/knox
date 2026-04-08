@@ -137,12 +137,12 @@ func getKeysHandler(m KeyManager, principal knox.Principal, parameters map[strin
 // key ID, base64 encoded data, and JSON encoded ACL.
 // It returns the key version ID of the original Primary key version.
 // The route for this handler is POST /v0/keys/
-// The postKeysHandler must be a User.
+// The postKeysHandler requires a User or Service principal.
 func postKeysHandler(m KeyManager, principal knox.Principal, parameters map[string]string) (interface{}, *HTTPError) {
 
 	// Authorize
-	if !auth.IsUser(principal) {
-		return nil, errF(knox.UnauthorizedCode, fmt.Sprintf("Must be a user to create keys, principal is %s", principal.GetID()))
+	if !auth.IsUser(principal) && !auth.IsService(principal) {
+		return nil, errF(knox.UnauthorizedCode, fmt.Sprintf("Must be a user or service to create keys, principal is %s", principal.GetID()))
 	}
 
 	keyID, keyIDOK := parameters["id"]

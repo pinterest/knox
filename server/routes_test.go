@@ -160,6 +160,53 @@ func TestPostKeys(t *testing.T) {
 	}
 }
 
+
+func TestPostKeysServiceWithConfig(t *testing.T) {
+	m, _ := makeDB()
+	svc := auth.NewService("pin220.com", "k8s/soxpiispinner/snowflake")
+	machine := auth.NewMachine("MrRoboto")
+
+	// Without any config registered, services are rejected (backwards compat).
+	_, err := postKeysHandler(m, svc, map[string]string{"id": "it:edp:snowflake:test1", "data": "MQ=="})
+	if err == nil {
+		t.Fatal("Expected err when no service config is registered")
+	}
+
+	AddServiceKeyCreationConfig(ServiceKeyCreationConfig{
+		SpiffePrefix:       "spiffe://pin220.com/k8s/soxpiispinner/",
+		KeyPrefix:          "it:edp:snowflake:",
+		Owner:              "it-edp",
+		OwnerPrincipalType: knox.UserGroup,
+		NimbusProject:      "snowflake",
+	})
+	defer ResetServiceKeyCreationConfigs()
+
+	// Matching service + key prefix succeeds.
+	_, err = postKeysHandler(m, svc, map[string]string{"id": "it:edp:snowflake:test1", "data": "MQ=="})
+	if err != nil {
+		t.Fatalf("Expected success for matching service config, got: %+v", err)
+	}
+
+	// Non-matching key prefix is rejected.
+	_, err = postKeysHandler(m, svc, map[string]string{"id": "other:prefix:key", "data": "MQ=="})
+	if err == nil {
+		t.Fatal("Expected err for non-matching key prefix")
+	}
+
+	// Non-matching SPIFFE is rejected.
+	otherSvc := auth.NewService("pin220.com", "k8s/otherspinner/service")
+	_, err = postKeysHandler(m, otherSvc, map[string]string{"id": "it:edp:snowflake:test2", "data": "MQ=="})
+	if err == nil {
+		t.Fatal("Expected err for non-matching SPIFFE")
+	}
+
+	// Machine principals are always rejected.
+	_, err = postKeysHandler(m, machine, map[string]string{"id": "it:edp:snowflake:test3", "data": "MQ=="})
+	if err == nil {
+		t.Fatal("Expected err for machine principal")
+	}
+}
+
 func TestGetKey(t *testing.T) {
 	m, _ := makeDB()
 	machine := auth.NewMachine("MrRoboto")

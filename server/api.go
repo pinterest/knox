@@ -378,7 +378,7 @@ func newKeyVersion(d []byte, s knox.VersionStatus) knox.KeyVersion {
 	return version
 }
 
-// NewKey creates a new Key with correctly set defaults.
+// newKey creates a new Key with correctly set defaults.
 func newKey(id string, acl knox.ACL, d []byte, u knox.Principal) knox.Key {
 	key := knox.Key{}
 	key.ID = id

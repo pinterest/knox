@@ -137,16 +137,25 @@ func getKeysHandler(m KeyManager, principal knox.Principal, parameters map[strin
 // key ID, base64 encoded data, and JSON encoded ACL.
 // It returns the key version ID of the original Primary key version.
 // The route for this handler is POST /v0/keys/
-// The postKeysHandler must be a User.
+// Users can always create keys. Service principals can create keys only if a
+// matching ServiceKeyCreationConfig has been registered.
 func postKeysHandler(m KeyManager, principal knox.Principal, parameters map[string]string) (interface{}, *HTTPError) {
 
-	// Authorize
+	keyID := parameters["id"]
+
+	// Authorize: users are always allowed; services need a matching config.
+	var ownerACL knox.ACL
 	if !auth.IsUser(principal) {
-		return nil, errF(knox.UnauthorizedCode, fmt.Sprintf("Must be a user to create keys, principal is %s", principal.GetID()))
+		cfg, allowed := MatchServiceKeyCreation(principal, keyID)
+		if !allowed {
+			return nil, errF(knox.UnauthorizedCode, fmt.Sprintf("Principal %s is not authorized to create keys", principal.GetID()))
+		}
+		if cfg.Owner != "" {
+			ownerACL = knox.ACL{{ID: cfg.Owner, AccessType: knox.Admin, Type: cfg.OwnerPrincipalType}}
+		}
 	}
 
-	keyID, keyIDOK := parameters["id"]
-	if !keyIDOK {
+	if keyID == "" {
 		return nil, errF(knox.NoKeyIDCode, "Missing parameter 'id'")
 	}
 	data, dataOK := parameters["data"]
@@ -171,8 +180,11 @@ func postKeysHandler(m KeyManager, principal knox.Principal, parameters map[stri
 		return nil, errF(knox.BadRequestDataCode, decodeErr.Error())
 	}
 
-	// Create and add new key
+	// Create and add new key; inject owner ACL for service-created keys.
 	key := newKey(keyID, acl, decodedData, principal)
+	for _, a := range ownerACL {
+		key.ACL = key.ACL.Add(a)
+	}
 	err := m.AddNewKey(&key)
 	if err != nil {
 		if err == knox.ErrKeyExists {

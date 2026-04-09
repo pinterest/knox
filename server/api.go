@@ -6,12 +6,14 @@ import (
 	"math/rand"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/gorilla/mux"
 
 	"github.com/pinterest/knox"
 	"github.com/pinterest/knox/log"
+	"github.com/pinterest/knox/server/auth"
 	"github.com/pinterest/knox/server/keydb"
 )
 
@@ -319,6 +321,52 @@ func AddPrincipalValidator(validator knox.PrincipalValidator) {
 	extraPrincipalValidators = append(extraPrincipalValidators, validator)
 }
 
+// ServiceKeyCreationConfig defines the policy for allowing a non-user
+// principal (e.g. a SPIFFE service) to create keys.
+type ServiceKeyCreationConfig struct {
+	// SpiffePrefix is the required prefix of the service principal's ID.
+	SpiffePrefix string
+	// KeyPrefix is the required prefix of the key ID being created.
+	KeyPrefix string
+	// Owner is the person or group responsible for keys created by this service.
+	Owner string
+	// OwnerPrincipalType is the Knox principal type for the owner (e.g. User or UserGroup).
+	OwnerPrincipalType knox.PrincipalType
+	// NimbusProject is metadata identifying the project associated with this service.
+	NimbusProject string
+	// MaxKeysPerHour caps how many keys this service can create per hour. 0 = unlimited.
+	MaxKeysPerHour int
+}
+
+var serviceKeyCreationConfigs []ServiceKeyCreationConfig
+
+// AddServiceKeyCreationConfig registers a policy that allows a matching
+// service principal to create keys. If no configs are registered the default
+// behavior (user-only) is preserved.
+func AddServiceKeyCreationConfig(cfg ServiceKeyCreationConfig) {
+	serviceKeyCreationConfigs = append(serviceKeyCreationConfigs, cfg)
+}
+
+// MatchServiceKeyCreation checks whether principal+keyID match any registered
+// config. Returns the matching config and true, or a zero value and false.
+func MatchServiceKeyCreation(principal knox.Principal, keyID string) (ServiceKeyCreationConfig, bool) {
+	if !auth.IsService(principal) {
+		return ServiceKeyCreationConfig{}, false
+	}
+	id := principal.GetID()
+	for _, cfg := range serviceKeyCreationConfigs {
+		if strings.HasPrefix(id, cfg.SpiffePrefix) && strings.HasPrefix(keyID, cfg.KeyPrefix) {
+			return cfg, true
+		}
+	}
+	return ServiceKeyCreationConfig{}, false
+}
+
+// ResetServiceKeyCreationConfigs clears all registered configs (for testing).
+func ResetServiceKeyCreationConfigs() {
+	serviceKeyCreationConfigs = nil
+}
+
 // newKeyVersion creates a new KeyVersion with correctly set defaults.
 func newKeyVersion(d []byte, s knox.VersionStatus) knox.KeyVersion {
 	version := knox.KeyVersion{}
@@ -335,7 +383,11 @@ func newKey(id string, acl knox.ACL, d []byte, u knox.Principal) knox.Key {
 	key := knox.Key{}
 	key.ID = id
 
-	creatorAccess := knox.Access{ID: u.GetID(), AccessType: knox.Admin, Type: knox.User}
+	creatorType := knox.PrincipalType(knox.User)
+	if auth.IsService(u) {
+		creatorType = knox.Service
+	}
+	creatorAccess := knox.Access{ID: u.GetID(), AccessType: knox.Admin, Type: creatorType}
 	key.ACL = acl.Add(creatorAccess)
 	for _, a := range defaultAccess {
 		key.ACL = key.ACL.Add(a)

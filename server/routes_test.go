@@ -161,30 +161,50 @@ func TestPostKeys(t *testing.T) {
 }
 
 
-func TestPostKeysServiceWithConfig(t *testing.T) {
+func TestPostKeysServiceWithAuthorizer(t *testing.T) {
 	m, _ := makeDB()
-	svc := auth.NewService("pin220.com", "k8s/soxpiispinner/snowflake")
-	machine := auth.NewMachine("MrRoboto")
+	svc := auth.NewService("example.com", "service/test-svc")
+	machine := auth.NewMachine("test-machine")
 
-	// Without any config registered, services are rejected (backwards compat).
-	_, err := postKeysHandler(m, svc, map[string]string{"id": "it:edp:snowflake:test1", "data": "MQ=="})
+	// Without any authorizer installed, non-user principals are rejected
+	// (preserving the pre-existing user-only default).
+	_, err := postKeysHandler(m, svc, map[string]string{"id": "test:project:key1", "data": "MQ=="})
 	if err == nil {
-		t.Fatal("Expected err when no service config is registered")
+		t.Fatal("Expected err when no service authorizer is installed")
 	}
 
-	AddServiceKeyCreationConfig(ServiceKeyCreationConfig{
-		SpiffePrefix:       "spiffe://pin220.com/k8s/soxpiispinner/",
-		KeyPrefix:          "it:edp:snowflake:",
-		Owner:              "it-edp",
-		OwnerPrincipalType: knox.UserGroup,
-		NimbusProject:      "snowflake",
-	})
-	defer ResetServiceKeyCreationConfigs()
+	authz := &PrefixServiceKeyCreationAuthorizer{}
+	if addErr := authz.AddPolicy(ServiceKeyCreationPolicy{
+		SpiffePrefix: "spiffe://example.com/service/test-svc",
+		KeyPrefix:    "test:project:",
+		Owner:        knox.Access{ID: "test-owners", Type: knox.UserGroup},
+		Metadata:     map[string]string{"project": "test-project"},
+	}); addErr != nil {
+		t.Fatalf("AddPolicy returned unexpected error: %v", addErr)
+	}
+	SetServiceKeyCreationAuthorizer(authz)
+	defer SetServiceKeyCreationAuthorizer(nil)
 
-	// Matching service + key prefix succeeds.
-	_, err = postKeysHandler(m, svc, map[string]string{"id": "it:edp:snowflake:test1", "data": "MQ=="})
+	// Matching service + key prefix succeeds and the owner is recorded as admin.
+	i, err := postKeysHandler(m, svc, map[string]string{"id": "test:project:key1", "data": "MQ=="})
 	if err != nil {
-		t.Fatalf("Expected success for matching service config, got: %+v", err)
+		t.Fatalf("Expected success for matching policy, got: %+v", err)
+	}
+	if _, ok := i.(uint64); !ok {
+		t.Fatalf("Expected uint64 version id, got %T", i)
+	}
+	k, kerr := m.GetKey("test:project:key1", knox.Active)
+	if kerr != nil {
+		t.Fatalf("Could not fetch newly created key: %v", kerr)
+	}
+	foundOwnerAdmin := false
+	for _, a := range k.ACL {
+		if a.ID == "test-owners" && a.Type == knox.UserGroup && a.AccessType == knox.Admin {
+			foundOwnerAdmin = true
+		}
+	}
+	if !foundOwnerAdmin {
+		t.Fatalf("Expected owner 'test-owners' to be Admin on ACL, got %+v", k.ACL)
 	}
 
 	// Non-matching key prefix is rejected.
@@ -194,16 +214,27 @@ func TestPostKeysServiceWithConfig(t *testing.T) {
 	}
 
 	// Non-matching SPIFFE is rejected.
-	otherSvc := auth.NewService("pin220.com", "k8s/otherspinner/service")
-	_, err = postKeysHandler(m, otherSvc, map[string]string{"id": "it:edp:snowflake:test2", "data": "MQ=="})
+	otherSvc := auth.NewService("example.com", "service/other-svc")
+	_, err = postKeysHandler(m, otherSvc, map[string]string{"id": "test:project:key2", "data": "MQ=="})
 	if err == nil {
 		t.Fatal("Expected err for non-matching SPIFFE")
 	}
 
 	// Machine principals are always rejected.
-	_, err = postKeysHandler(m, machine, map[string]string{"id": "it:edp:snowflake:test3", "data": "MQ=="})
+	_, err = postKeysHandler(m, machine, map[string]string{"id": "test:project:key3", "data": "MQ=="})
 	if err == nil {
 		t.Fatal("Expected err for machine principal")
+	}
+}
+
+func TestPrefixServiceKeyCreationAuthorizerRequiresOwner(t *testing.T) {
+	authz := &PrefixServiceKeyCreationAuthorizer{}
+	err := authz.AddPolicy(ServiceKeyCreationPolicy{
+		SpiffePrefix: "spiffe://example.com/service/test-svc",
+		KeyPrefix:    "test:project:",
+	})
+	if err == nil {
+		t.Fatal("Expected AddPolicy to reject a policy with no Owner")
 	}
 }
 

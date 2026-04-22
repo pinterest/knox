@@ -321,50 +321,76 @@ func AddPrincipalValidator(validator knox.PrincipalValidator) {
 	extraPrincipalValidators = append(extraPrincipalValidators, validator)
 }
 
-// ServiceKeyCreationConfig defines the policy for allowing a non-user
-// principal (e.g. a SPIFFE service) to create keys.
-type ServiceKeyCreationConfig struct {
-	// SpiffePrefix is the required prefix of the service principal's ID.
+// ServiceKeyCreationAuthorizer decides whether a non-user principal (e.g. a
+// SPIFFE service) is allowed to create a given key. Implementations hold their
+// own state (allowlists, rate limiters, project metadata, etc.) on their own
+// struct, so Knox itself does not own mutable package-level state.
+//
+// Authorize returns the owner Access that should be added as an Admin on the
+// newly created key to preserve the invariant that every key has a human
+// admin. If ok is false the key creation is rejected.
+type ServiceKeyCreationAuthorizer interface {
+	Authorize(principal knox.Principal, keyID string) (owner knox.Access, ok bool)
+}
+
+// serviceKeyCreationAuthorizer is the single pluggable hook for non-user key
+// creation. When nil (the default), only users may create keys.
+var serviceKeyCreationAuthorizer ServiceKeyCreationAuthorizer
+
+// SetServiceKeyCreationAuthorizer installs the authorizer invoked when a
+// non-user principal attempts to create a key. Pass nil to disable non-user
+// creation (the default).
+func SetServiceKeyCreationAuthorizer(a ServiceKeyCreationAuthorizer) {
+	serviceKeyCreationAuthorizer = a
+}
+
+// ServiceKeyCreationPolicy is a single entry in the reference
+// PrefixServiceKeyCreationAuthorizer implementation. It matches a service
+// principal by SPIFFE ID prefix and a key by key-ID prefix, and names the
+// human Owner that becomes an Admin on keys created under the policy.
+//
+// Metadata is free-form key/value data that callers may use for their own
+// bookkeeping (e.g. project name, rate-limit bucket). It is not interpreted
+// by Knox.
+type ServiceKeyCreationPolicy struct {
 	SpiffePrefix string
-	// KeyPrefix is the required prefix of the key ID being created.
-	KeyPrefix string
-	// Owner is the person or group responsible for keys created by this service.
-	Owner string
-	// OwnerPrincipalType is the Knox principal type for the owner (e.g. User or UserGroup).
-	OwnerPrincipalType knox.PrincipalType
-	// NimbusProject is metadata identifying the project associated with this service.
-	NimbusProject string
-	// MaxKeysPerHour caps how many keys this service can create per hour. 0 = unlimited.
-	MaxKeysPerHour int
+	KeyPrefix    string
+	Owner        knox.Access
+	Metadata     map[string]string
 }
 
-var serviceKeyCreationConfigs []ServiceKeyCreationConfig
-
-// AddServiceKeyCreationConfig registers a policy that allows a matching
-// service principal to create keys. If no configs are registered the default
-// behavior (user-only) is preserved.
-func AddServiceKeyCreationConfig(cfg ServiceKeyCreationConfig) {
-	serviceKeyCreationConfigs = append(serviceKeyCreationConfigs, cfg)
+// PrefixServiceKeyCreationAuthorizer is a reference ServiceKeyCreationAuthorizer
+// that matches services by SPIFFE prefix and keys by key-ID prefix. Consumers
+// who need richer behavior (rate limiting, dynamic config, etc.) should
+// implement ServiceKeyCreationAuthorizer themselves.
+type PrefixServiceKeyCreationAuthorizer struct {
+	policies []ServiceKeyCreationPolicy
 }
 
-// MatchServiceKeyCreation checks whether principal+keyID match any registered
-// config. Returns the matching config and true, or a zero value and false.
-func MatchServiceKeyCreation(principal knox.Principal, keyID string) (ServiceKeyCreationConfig, bool) {
+// AddPolicy registers a policy. Returns an error if Owner is not specified,
+// because keys without a human admin would break Knox's ownership invariant.
+func (a *PrefixServiceKeyCreationAuthorizer) AddPolicy(p ServiceKeyCreationPolicy) error {
+	if p.Owner.ID == "" {
+		return fmt.Errorf("service key creation policy must specify an Owner with a non-empty ID")
+	}
+	a.policies = append(a.policies, p)
+	return nil
+}
+
+// Authorize implements ServiceKeyCreationAuthorizer.
+func (a *PrefixServiceKeyCreationAuthorizer) Authorize(principal knox.Principal, keyID string) (knox.Access, bool) {
 	if !auth.IsService(principal) {
-		return ServiceKeyCreationConfig{}, false
+		return knox.Access{}, false
 	}
 	id := principal.GetID()
-	for _, cfg := range serviceKeyCreationConfigs {
-		if strings.HasPrefix(id, cfg.SpiffePrefix) && strings.HasPrefix(keyID, cfg.KeyPrefix) {
-			return cfg, true
+	for _, p := range a.policies {
+		if strings.HasPrefix(id, p.SpiffePrefix) && strings.HasPrefix(keyID, p.KeyPrefix) {
+			owner := p.Owner
+			owner.AccessType = knox.Admin
+			return owner, true
 		}
 	}
-	return ServiceKeyCreationConfig{}, false
-}
-
-// ResetServiceKeyCreationConfigs clears all registered configs (for testing).
-func ResetServiceKeyCreationConfigs() {
-	serviceKeyCreationConfigs = nil
+	return knox.Access{}, false
 }
 
 // newKeyVersion creates a new KeyVersion with correctly set defaults.
@@ -379,7 +405,11 @@ func newKeyVersion(d []byte, s knox.VersionStatus) knox.KeyVersion {
 }
 
 // newKey creates a new Key with correctly set defaults.
-func newKey(id string, acl knox.ACL, d []byte, u knox.Principal) knox.Key {
+//
+// The creator is always added as an Admin. Any extraAdmins (e.g. a human
+// owner for service-created keys) are also added as Admins so that the
+// invariant "every key has a human admin" is preserved in a single place.
+func newKey(id string, acl knox.ACL, d []byte, u knox.Principal, extraAdmins ...knox.Access) knox.Key {
 	key := knox.Key{}
 	key.ID = id
 
@@ -390,6 +420,13 @@ func newKey(id string, acl knox.ACL, d []byte, u knox.Principal) knox.Key {
 	creatorAccess := knox.Access{ID: u.GetID(), AccessType: knox.Admin, Type: creatorType}
 	key.ACL = acl.Add(creatorAccess)
 	for _, a := range defaultAccess {
+		key.ACL = key.ACL.Add(a)
+	}
+	for _, a := range extraAdmins {
+		if a.ID == "" {
+			continue
+		}
+		a.AccessType = knox.Admin
 		key.ACL = key.ACL.Add(a)
 	}
 

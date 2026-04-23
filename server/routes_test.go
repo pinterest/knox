@@ -160,7 +160,6 @@ func TestPostKeys(t *testing.T) {
 	}
 }
 
-
 func TestPostKeysServiceWithAuthorizer(t *testing.T) {
 	m, _ := makeDB()
 	svc := auth.NewService("example.com", "service/test-svc/v1")

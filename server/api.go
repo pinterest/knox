@@ -367,11 +367,18 @@ type PrefixServiceKeyCreationAuthorizer struct {
 	policies []ServiceKeyCreationPolicy
 }
 
-// AddPolicy registers a policy. Returns an error if Owner is not specified,
-// because keys without a human admin would break Knox's ownership invariant.
+// AddPolicy registers a policy. Returns an error if:
+//   - Owner is not specified (keys without a human admin would break Knox's
+//     ownership invariant), or
+//   - SpiffePrefix is not a well-formed SPIFFE prefix as validated by
+//     knox.ServicePrefix.IsValidPrincipal (must be a spiffe:// URL ending in
+//     "/" so prefix matching respects path-component boundaries).
 func (a *PrefixServiceKeyCreationAuthorizer) AddPolicy(p ServiceKeyCreationPolicy) error {
 	if p.Owner.ID == "" {
 		return fmt.Errorf("service key creation policy must specify an Owner with a non-empty ID")
+	}
+	if err := knox.PrincipalType(knox.ServicePrefix).IsValidPrincipal(p.SpiffePrefix, nil); err != nil {
+		return fmt.Errorf("invalid SpiffePrefix %q: %w", p.SpiffePrefix, err)
 	}
 	a.policies = append(a.policies, p)
 	return nil

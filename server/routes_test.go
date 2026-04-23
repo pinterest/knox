@@ -163,7 +163,7 @@ func TestPostKeys(t *testing.T) {
 
 func TestPostKeysServiceWithAuthorizer(t *testing.T) {
 	m, _ := makeDB()
-	svc := auth.NewService("example.com", "service/test-svc")
+	svc := auth.NewService("example.com", "service/test-svc/v1")
 	machine := auth.NewMachine("test-machine")
 
 	// Without any authorizer installed, non-user principals are rejected
@@ -175,7 +175,7 @@ func TestPostKeysServiceWithAuthorizer(t *testing.T) {
 
 	authz := &PrefixServiceKeyCreationAuthorizer{}
 	if addErr := authz.AddPolicy(ServiceKeyCreationPolicy{
-		SpiffePrefix: "spiffe://example.com/service/test-svc",
+		SpiffePrefix: "spiffe://example.com/service/test-svc/",
 		KeyPrefix:    "test:project:",
 		Owner:        knox.Access{ID: "test-owners", Type: knox.UserGroup},
 		Metadata:     map[string]string{"project": "test-project"},
@@ -214,7 +214,7 @@ func TestPostKeysServiceWithAuthorizer(t *testing.T) {
 	}
 
 	// Non-matching SPIFFE is rejected.
-	otherSvc := auth.NewService("example.com", "service/other-svc")
+	otherSvc := auth.NewService("example.com", "service/other-svc/v1")
 	_, err = postKeysHandler(m, otherSvc, map[string]string{"id": "test:project:key2", "data": "MQ=="})
 	if err == nil {
 		t.Fatal("Expected err for non-matching SPIFFE")
@@ -230,11 +230,37 @@ func TestPostKeysServiceWithAuthorizer(t *testing.T) {
 func TestPrefixServiceKeyCreationAuthorizerRequiresOwner(t *testing.T) {
 	authz := &PrefixServiceKeyCreationAuthorizer{}
 	err := authz.AddPolicy(ServiceKeyCreationPolicy{
-		SpiffePrefix: "spiffe://example.com/service/test-svc",
+		SpiffePrefix: "spiffe://example.com/service/test-svc/",
 		KeyPrefix:    "test:project:",
 	})
 	if err == nil {
 		t.Fatal("Expected AddPolicy to reject a policy with no Owner")
+	}
+}
+
+func TestPrefixServiceKeyCreationAuthorizerValidatesSpiffePrefix(t *testing.T) {
+	owner := knox.Access{ID: "test-owners", Type: knox.UserGroup}
+
+	cases := []struct {
+		name   string
+		prefix string
+	}{
+		{"empty", ""},
+		{"not a spiffe url", "http://example.com/service/"},
+		{"missing trailing slash", "spiffe://example.com/service/test-svc"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			authz := &PrefixServiceKeyCreationAuthorizer{}
+			err := authz.AddPolicy(ServiceKeyCreationPolicy{
+				SpiffePrefix: tc.prefix,
+				KeyPrefix:    "test:project:",
+				Owner:        owner,
+			})
+			if err == nil {
+				t.Fatalf("Expected AddPolicy to reject SpiffePrefix %q", tc.prefix)
+			}
+		})
 	}
 }
 

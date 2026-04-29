@@ -164,22 +164,141 @@ func TestPrincipalMuxType(t *testing.T) {
 }
 
 func TestPrincipalMuxUserOrService(t *testing.T) {
+	// IsUser/IsService should match if *any* sub-principal in the mux is of
+	// the target type, not just the default. In multi-provider auth chains a
+	// real service principal is often wrapped in a mux whose default is a
+	// different principal type, and downstream code that gates on these
+	// predicates (e.g. ServiceKeyCreationAuthorizer) would otherwise reject
+	// real service requests.
 	u := NewUser("test", []string{"returntrue"})
 	s := NewService("example.com", "serviceA")
 	userMux := knox.NewPrincipalMux(u, map[string]knox.Principal{"foo": u, "bar": s})
 	serviceMux := knox.NewPrincipalMux(s, map[string]knox.Principal{"foo": u, "bar": s})
 
 	if !IsUser(userMux) {
-		t.Error("IsUser failed to identify that mux is user first.")
+		t.Error("IsUser failed to identify mux containing a user.")
 	}
-	if IsService(userMux) {
-		t.Error("IsService failed to identify that mux is user first, and thus not a service.")
+	if !IsService(userMux) {
+		t.Error("IsService failed to identify mux containing a service (default user).")
 	}
-	if IsUser(serviceMux) {
-		t.Error("IsUser failed to identify that mux is service first, and thus not a user.")
+	if !IsUser(serviceMux) {
+		t.Error("IsUser failed to identify mux containing a user (default service).")
 	}
 	if !IsService(serviceMux) {
-		t.Error("IsService failed to identify that mux is service first.")
+		t.Error("IsService failed to identify mux containing a service.")
+	}
+}
+
+func TestIsServicePrincipalMux(t *testing.T) {
+	s := NewService("pin220.com", "k8s/example/username/test")
+	mux := knox.NewPrincipalMux(s, map[string]knox.Principal{"service": s})
+
+	if !IsService(mux) {
+		t.Error("IsService(mux wrapping service) = false, want true")
+	}
+	if IsUser(mux) {
+		t.Error("IsUser(mux wrapping only service) = true, want false")
+	}
+	if IsMachine(mux) {
+		t.Error("IsMachine(mux wrapping only service) = true, want false")
+	}
+}
+
+func TestIsUserPrincipalMux(t *testing.T) {
+	u := NewUser("testuser", []string{"testgroup"})
+	mux := knox.NewPrincipalMux(u, map[string]knox.Principal{"user": u})
+
+	if !IsUser(mux) {
+		t.Error("IsUser(mux wrapping user) = false, want true")
+	}
+	if IsService(mux) {
+		t.Error("IsService(mux wrapping only user) = true, want false")
+	}
+	if IsMachine(mux) {
+		t.Error("IsMachine(mux wrapping only user) = true, want false")
+	}
+}
+
+func TestIsMachinePrincipalMux(t *testing.T) {
+	m := NewMachine("test001")
+	mux := knox.NewPrincipalMux(m, map[string]knox.Principal{"machine": m})
+
+	if !IsMachine(mux) {
+		t.Error("IsMachine(mux wrapping machine) = false, want true")
+	}
+	if IsService(mux) {
+		t.Error("IsService(mux wrapping only machine) = true, want false")
+	}
+	if IsUser(mux) {
+		t.Error("IsUser(mux wrapping only machine) = true, want false")
+	}
+}
+
+func TestIsPredicatesRawPrincipals(t *testing.T) {
+	// Fast path: predicates should also work on raw (non-mux) principals.
+	u := NewUser("testuser", nil)
+	s := NewService("example.com", "serviceA")
+	m := NewMachine("test001")
+
+	if !IsUser(u) || IsService(u) || IsMachine(u) {
+		t.Error("predicates misidentified raw user")
+	}
+	if !IsService(s) || IsUser(s) || IsMachine(s) {
+		t.Error("predicates misidentified raw service")
+	}
+	if !IsMachine(m) || IsUser(m) || IsService(m) {
+		t.Error("predicates misidentified raw machine")
+	}
+}
+
+func TestIsServicePrincipalMuxMixedSubPrincipals(t *testing.T) {
+	// mux where the default is a User but a Service is also present:
+	// IsService should still return true because a service is in the mux.
+	u := NewUser("testuser", nil)
+	s := NewService("pin220.com", "k8s/example/username/test")
+	mux := knox.NewPrincipalMux(u, map[string]knox.Principal{
+		"user":    u,
+		"service": s,
+	})
+
+	if !IsService(mux) {
+		t.Error("IsService(mux containing service) = false, want true")
+	}
+	if !IsUser(mux) {
+		t.Error("IsUser(mux containing user) = false, want true")
+	}
+	if IsMachine(mux) {
+		t.Error("IsMachine(mux without machine) = true, want false")
+	}
+}
+
+func TestPrincipalMuxPrincipals(t *testing.T) {
+	u := NewUser("testuser", nil)
+	s := NewService("example.com", "serviceA")
+	mux := knox.NewPrincipalMux(u, map[string]knox.Principal{
+		"user":    u,
+		"service": s,
+	}).(knox.PrincipalMux)
+
+	got := mux.Principals()
+	if len(got) != 2 {
+		t.Fatalf("Principals() length = %d, want 2", len(got))
+	}
+
+	hasUser, hasService := false, false
+	for _, p := range got {
+		if _, ok := p.(user); ok {
+			hasUser = true
+		}
+		if _, ok := p.(service); ok {
+			hasService = true
+		}
+	}
+	if !hasUser {
+		t.Error("Principals() did not return the user sub-principal")
+	}
+	if !hasService {
+		t.Error("Principals() did not return the service sub-principal")
 	}
 }
 

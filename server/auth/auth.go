@@ -318,22 +318,57 @@ type httpClient interface {
 	Do(req *http.Request) (resp *http.Response, err error)
 }
 
-// IsUser returns true if the principal, or first principal in the case of mux, is a user.
+// IsUser returns true if the principal is a user, or if the principal is a
+// PrincipalMux that contains at least one user sub-principal.
 func IsUser(p knox.Principal) bool {
-	if mux, ok := p.(knox.PrincipalMux); ok {
-		p = mux.Default()
+	if _, ok := p.(user); ok {
+		return true
 	}
-	_, ok := p.(user)
-	return ok
+	if mux, ok := p.(knox.PrincipalMux); ok {
+		for _, sub := range mux.Principals() {
+			if _, ok := sub.(user); ok {
+				return true
+			}
+		}
+	}
+	return false
 }
 
-// IsService returns true if the principal, or first principal in the case of mux, is a service.
+// IsService returns true if the principal is a service, or if the principal is
+// a PrincipalMux that contains at least one service sub-principal.
+//
+// This sees through PrincipalMux deliberately: in multi-provider auth chains a
+// real service principal is often wrapped in a mux whose default is a different
+// principal type, so a strict default-only check would incorrectly reject real
+// service requests in any code path that gates on IsService.
 func IsService(p knox.Principal) bool {
-	if mux, ok := p.(knox.PrincipalMux); ok {
-		p = mux.Default()
+	if _, ok := p.(service); ok {
+		return true
 	}
-	_, ok := p.(service)
-	return ok
+	if mux, ok := p.(knox.PrincipalMux); ok {
+		for _, sub := range mux.Principals() {
+			if _, ok := sub.(service); ok {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// IsMachine returns true if the principal is a machine, or if the principal is
+// a PrincipalMux that contains at least one machine sub-principal.
+func IsMachine(p knox.Principal) bool {
+	if _, ok := p.(machine); ok {
+		return true
+	}
+	if mux, ok := p.(knox.PrincipalMux); ok {
+		for _, sub := range mux.Principals() {
+			if _, ok := sub.(machine); ok {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 type stringSet map[string]struct{}

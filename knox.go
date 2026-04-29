@@ -572,6 +572,16 @@ func (p PrincipalMux) Default() Principal {
 	return p.defaultPrincipal
 }
 
+// Principals returns all the constituent principals being muxed, including
+// the default. Order is not guaranteed (the underlying storage is a map).
+func (p PrincipalMux) Principals() []Principal {
+	principals := make([]Principal, 0, len(p.allPrincipals))
+	for _, principal := range p.allPrincipals {
+		principals = append(principals, principal)
+	}
+	return principals
+}
+
 // Raw returns the raw version of all the principals.
 func (p PrincipalMux) Raw() []RawPrincipal {
 	raw := []RawPrincipal{}

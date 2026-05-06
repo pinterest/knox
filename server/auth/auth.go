@@ -319,14 +319,15 @@ type httpClient interface {
 }
 
 // IsUser returns true if the principal is a user, or if the principal is a
-// PrincipalMux that contains at least one user sub-principal.
+// (possibly nested) PrincipalMux that contains at least one user sub-principal
+// at any depth.
 func IsUser(p knox.Principal) bool {
 	if _, ok := p.(user); ok {
 		return true
 	}
 	if mux, ok := p.(knox.PrincipalMux); ok {
 		for _, sub := range mux.Principals() {
-			if _, ok := sub.(user); ok {
+			if IsUser(sub) {
 				return true
 			}
 		}
@@ -335,19 +336,24 @@ func IsUser(p knox.Principal) bool {
 }
 
 // IsService returns true if the principal is a service, or if the principal is
-// a PrincipalMux that contains at least one service sub-principal.
+// a (possibly nested) PrincipalMux that contains at least one service
+// sub-principal at any depth.
 //
 // This sees through PrincipalMux deliberately: in multi-provider auth chains a
 // real service principal is often wrapped in a mux whose default is a different
 // principal type, so a strict default-only check would incorrectly reject real
-// service requests in any code path that gates on IsService.
+// service requests in any code path that gates on IsService. The Authentication
+// HTTP decorator wraps whatever a provider returns in a PrincipalMux, and a
+// composite provider (e.g. one that itself runs a per-account provider chain)
+// may itself return a PrincipalMux, so the principal that reaches a handler can
+// be a mux of muxes. The recursion below resolves that case correctly.
 func IsService(p knox.Principal) bool {
 	if _, ok := p.(service); ok {
 		return true
 	}
 	if mux, ok := p.(knox.PrincipalMux); ok {
 		for _, sub := range mux.Principals() {
-			if _, ok := sub.(service); ok {
+			if IsService(sub) {
 				return true
 			}
 		}
@@ -356,14 +362,15 @@ func IsService(p knox.Principal) bool {
 }
 
 // IsMachine returns true if the principal is a machine, or if the principal is
-// a PrincipalMux that contains at least one machine sub-principal.
+// a (possibly nested) PrincipalMux that contains at least one machine
+// sub-principal at any depth.
 func IsMachine(p knox.Principal) bool {
 	if _, ok := p.(machine); ok {
 		return true
 	}
 	if mux, ok := p.(knox.PrincipalMux); ok {
 		for _, sub := range mux.Principals() {
-			if _, ok := sub.(machine); ok {
+			if IsMachine(sub) {
 				return true
 			}
 		}

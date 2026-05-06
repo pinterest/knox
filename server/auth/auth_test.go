@@ -272,6 +272,99 @@ func TestIsServicePrincipalMuxMixedSubPrincipals(t *testing.T) {
 	}
 }
 
+func TestIsService_NestedPrincipalMux(t *testing.T) {
+	// In production, a composite provider can return a PrincipalMux, which the
+	// outer Authentication decorator then wraps in another PrincipalMux. The
+	// predicates must see through any depth of nesting.
+	svc := NewService("pin220.com", "k8s/example/username/test")
+	inner := knox.NewPrincipalMux(svc, map[string]knox.Principal{"spiffe": svc})
+	outer := knox.NewPrincipalMux(inner, map[string]knox.Principal{"composite": inner})
+
+	if !IsService(outer) {
+		t.Errorf("IsService(nested mux wrapping service) = false, want true")
+	}
+	if IsUser(outer) {
+		t.Errorf("IsUser(nested mux wrapping only service) = true, want false")
+	}
+	if IsMachine(outer) {
+		t.Errorf("IsMachine(nested mux wrapping only service) = true, want false")
+	}
+}
+
+func TestIsUser_NestedPrincipalMux(t *testing.T) {
+	u := NewUser("testuser", []string{"testgroup"})
+	inner := knox.NewPrincipalMux(u, map[string]knox.Principal{"github": u})
+	outer := knox.NewPrincipalMux(inner, map[string]knox.Principal{"composite": inner})
+
+	if !IsUser(outer) {
+		t.Errorf("IsUser(nested mux wrapping user) = false, want true")
+	}
+	if IsService(outer) {
+		t.Errorf("IsService(nested mux wrapping only user) = true, want false")
+	}
+	if IsMachine(outer) {
+		t.Errorf("IsMachine(nested mux wrapping only user) = true, want false")
+	}
+}
+
+func TestIsMachine_NestedPrincipalMux(t *testing.T) {
+	m := NewMachine("test001")
+	inner := knox.NewPrincipalMux(m, map[string]knox.Principal{"mtls": m})
+	outer := knox.NewPrincipalMux(inner, map[string]knox.Principal{"composite": inner})
+
+	if !IsMachine(outer) {
+		t.Errorf("IsMachine(nested mux wrapping machine) = false, want true")
+	}
+	if IsService(outer) {
+		t.Errorf("IsService(nested mux wrapping only machine) = true, want false")
+	}
+	if IsUser(outer) {
+		t.Errorf("IsUser(nested mux wrapping only machine) = true, want false")
+	}
+}
+
+func TestIsService_DeeperNesting(t *testing.T) {
+	// Three levels of PrincipalMux to prove the recursion isn't accidentally
+	// limited to two.
+	svc := NewService("pin220.com", "k8s/example/username/test")
+	l1 := knox.NewPrincipalMux(svc, map[string]knox.Principal{"a": svc})
+	l2 := knox.NewPrincipalMux(l1, map[string]knox.Principal{"b": l1})
+	l3 := knox.NewPrincipalMux(l2, map[string]knox.Principal{"c": l2})
+
+	if !IsService(l3) {
+		t.Errorf("IsService(3-level nested mux) = false, want true")
+	}
+	if IsUser(l3) {
+		t.Errorf("IsUser(3-level nested mux of service) = true, want false")
+	}
+	if IsMachine(l3) {
+		t.Errorf("IsMachine(3-level nested mux of service) = true, want false")
+	}
+}
+
+func TestIsService_NestedMux_MixedLeaves(t *testing.T) {
+	// Inner mux contains a User; outer contains the inner mux plus a separate
+	// Service in a sibling sub-tree. Both predicates should return true
+	// regardless of which sub-tree holds the leaf.
+	u := NewUser("testuser", nil)
+	svc := NewService("pin220.com", "k8s/example/username/test")
+	inner := knox.NewPrincipalMux(u, map[string]knox.Principal{"user": u})
+	outer := knox.NewPrincipalMux(inner, map[string]knox.Principal{
+		"userside":    inner,
+		"serviceside": svc,
+	})
+
+	if !IsUser(outer) {
+		t.Errorf("IsUser(outer with nested user) = false, want true")
+	}
+	if !IsService(outer) {
+		t.Errorf("IsService(outer with sibling service) = false, want true")
+	}
+	if IsMachine(outer) {
+		t.Errorf("IsMachine(outer with no machine) = true, want false")
+	}
+}
+
 func TestPrincipalMuxPrincipals(t *testing.T) {
 	u := NewUser("testuser", nil)
 	s := NewService("example.com", "serviceA")

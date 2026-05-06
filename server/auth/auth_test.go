@@ -342,6 +342,34 @@ func TestIsService_DeeperNesting(t *testing.T) {
 	}
 }
 
+func TestIsService_DepthGate(t *testing.T) {
+	// Defensive: a pathologically deep mux chain should not hang the predicate
+	// (which would happen with unbounded recursion + a stack-overflow-sized
+	// chain) and should return false past the cap. At exactly the cap depth
+	// the leaf must still be found.
+	svc := NewService("pin220.com", "k8s/example/username/test")
+
+	// Build a chain whose total depth (number of PrincipalMux wrappers between
+	// the public API call and the leaf) is exactly maxPrincipalMuxDepth. The
+	// public IsService starts at depth 0 and increments depth before each
+	// recursive call into a sub-principal, so a chain of N wrappers requires
+	// the helper to accept at least depth == N to find the leaf.
+	atCap := knox.Principal(svc)
+	for i := 0; i < maxPrincipalMuxDepth; i++ {
+		atCap = knox.NewPrincipalMux(atCap, map[string]knox.Principal{"l": atCap})
+	}
+	if !IsService(atCap) {
+		t.Errorf("IsService(chain of %d wrappers) = false, want true (leaf at the cap depth must still resolve)", maxPrincipalMuxDepth)
+	}
+
+	// One level deeper than the cap — the leaf is unreachable and the
+	// predicate must return false rather than recursing forever.
+	beyondCap := knox.NewPrincipalMux(atCap, map[string]knox.Principal{"l": atCap})
+	if IsService(beyondCap) {
+		t.Errorf("IsService(chain of %d wrappers) = true, want false (depth gate should refuse to recurse past the cap)", maxPrincipalMuxDepth+1)
+	}
+}
+
 func TestIsService_NestedMux_MixedLeaves(t *testing.T) {
 	// Inner mux contains a User; outer contains the inner mux plus a separate
 	// Service in a sibling sub-tree. Both predicates should return true

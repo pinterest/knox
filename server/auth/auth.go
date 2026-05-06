@@ -318,26 +318,48 @@ type httpClient interface {
 	Do(req *http.Request) (resp *http.Response, err error)
 }
 
-// IsUser returns true if the principal is a user, or if the principal is a
-// (possibly nested) PrincipalMux that contains at least one user sub-principal
-// at any depth.
-func IsUser(p knox.Principal) bool {
-	if _, ok := p.(user); ok {
+// maxPrincipalMuxDepth caps recursion when IsUser, IsService, and IsMachine
+// unwrap nested PrincipalMux values. In production the principal graph is
+// constructed by trusted server code and is at most ~3 levels deep (an outer
+// Authentication-decorator mux around a composite-provider mux around a leaf),
+// so this cap is wildly generous and never trips on well-formed input. It
+// exists purely as a defensive guard against pathological mux constructions:
+// without it, a buggy provider that returned a mux containing itself in its
+// allPrincipals map would hang the request handler in unbounded recursion.
+const maxPrincipalMuxDepth = 32
+
+// principalMatches reports whether p, recursively unwrapping any nested
+// knox.PrincipalMux values, contains a leaf principal for which match returns
+// true. Recursion is bounded by maxPrincipalMuxDepth.
+func principalMatches(p knox.Principal, match func(knox.Principal) bool, depth int) bool {
+	if match(p) {
 		return true
 	}
-	if mux, ok := p.(knox.PrincipalMux); ok {
-		for _, sub := range mux.Principals() {
-			if IsUser(sub) {
-				return true
-			}
+	if depth >= maxPrincipalMuxDepth {
+		return false
+	}
+	mux, ok := p.(knox.PrincipalMux)
+	if !ok {
+		return false
+	}
+	for _, sub := range mux.Principals() {
+		if principalMatches(sub, match, depth+1) {
+			return true
 		}
 	}
 	return false
 }
 
+// IsUser returns true if the principal is a user, or if the principal is a
+// (possibly nested) PrincipalMux that contains at least one user sub-principal
+// at any depth up to maxPrincipalMuxDepth.
+func IsUser(p knox.Principal) bool {
+	return principalMatches(p, isUserLeaf, 0)
+}
+
 // IsService returns true if the principal is a service, or if the principal is
 // a (possibly nested) PrincipalMux that contains at least one service
-// sub-principal at any depth.
+// sub-principal at any depth up to maxPrincipalMuxDepth.
 //
 // This sees through PrincipalMux deliberately: in multi-provider auth chains a
 // real service principal is often wrapped in a mux whose default is a different
@@ -348,35 +370,23 @@ func IsUser(p knox.Principal) bool {
 // may itself return a PrincipalMux, so the principal that reaches a handler can
 // be a mux of muxes. The recursion below resolves that case correctly.
 func IsService(p knox.Principal) bool {
-	if _, ok := p.(service); ok {
-		return true
-	}
-	if mux, ok := p.(knox.PrincipalMux); ok {
-		for _, sub := range mux.Principals() {
-			if IsService(sub) {
-				return true
-			}
-		}
-	}
-	return false
+	return principalMatches(p, isServiceLeaf, 0)
 }
 
 // IsMachine returns true if the principal is a machine, or if the principal is
 // a (possibly nested) PrincipalMux that contains at least one machine
-// sub-principal at any depth.
+// sub-principal at any depth up to maxPrincipalMuxDepth.
 func IsMachine(p knox.Principal) bool {
-	if _, ok := p.(machine); ok {
-		return true
-	}
-	if mux, ok := p.(knox.PrincipalMux); ok {
-		for _, sub := range mux.Principals() {
-			if IsMachine(sub) {
-				return true
-			}
-		}
-	}
-	return false
+	return principalMatches(p, isMachineLeaf, 0)
 }
+
+// isUserLeaf, isServiceLeaf, and isMachineLeaf are the leaf-only type tests
+// used by the corresponding Is* predicates. They are defined as package-level
+// functions (rather than inline closures) so each Is* call passes a stable
+// function value and avoids any per-call closure construction.
+func isUserLeaf(p knox.Principal) bool    { _, ok := p.(user); return ok }
+func isServiceLeaf(p knox.Principal) bool { _, ok := p.(service); return ok }
+func isMachineLeaf(p knox.Principal) bool { _, ok := p.(machine); return ok }
 
 type stringSet map[string]struct{}
 

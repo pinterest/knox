@@ -322,11 +322,12 @@ type httpClient interface {
 // unwrap nested PrincipalMux values. In production the principal graph is
 // constructed by trusted server code and is at most ~3 levels deep (an outer
 // Authentication-decorator mux around a composite-provider mux around a leaf),
-// so this cap is wildly generous and never trips on well-formed input. It
-// exists purely as a defensive guard against pathological mux constructions:
-// without it, a buggy provider that returned a mux containing itself in its
-// allPrincipals map would hang the request handler in unbounded recursion.
-const maxPrincipalMuxDepth = 32
+// so this cap leaves a small amount of headroom for additional wrapping and
+// is not expected to trip on well-formed input. It exists purely as a
+// defensive guard against pathological mux constructions: without it, a buggy
+// provider that returned a mux containing itself in its allPrincipals map
+// would hang the request handler in unbounded recursion.
+const maxPrincipalMuxDepth = 5
 
 // principalMatches reports whether p, recursively unwrapping any nested
 // knox.PrincipalMux values, contains a leaf principal for which match returns

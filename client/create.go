@@ -13,7 +13,7 @@ func init() {
 }
 
 var cmdCreate = &Command{
-	UsageLine: "create [--key-template template_name] <key_identifier>",
+	UsageLine: "create [--key-template template_name] [-acl acl_file] <key_identifier>",
 	Short:     "creates a new key",
 	Long: `
 Create will create a new key in knox with input as the primary key version. Key data should be sent to stdin unless a key-template is specified.
@@ -23,6 +23,8 @@ Please run "knox create <key_identifier>".
 
 Second way: the key-template option can be used to specify a template to generate the initial primary key version, instead of stdin. For available key templates, run "knox key-templates".
 Please run "knox create --key-template <template_name> <key_identifier>".
+
+-acl: Takes in a filename with a JSON formatted list of access rules to set on the key at creation time, in the same format as "knox access -acl".
 
 The original key version id will be print to stdout.
 
@@ -34,14 +36,25 @@ See also: knox add, knox get
 	`,
 }
 var createTinkKeyset = cmdCreate.Flag.String("key-template", "", "name of a knox-supported Tink key template")
+var createACL = cmdCreate.Flag.String("acl", "", "file containing a JSON formatted list of access rules")
 
 func runCreate(cmd *Command, args []string) *ErrorStatus {
 	if len(args) != 1 {
 		return &ErrorStatus{fmt.Errorf("create takes exactly one argument; see 'knox help create'"), false}
 	}
 	keyID := args[0]
-	var data []byte
 	var err error
+	// Parse the ACL file (if any) before reading key data so that an
+	// unreadable or malformed file fails fast, without first consuming the
+	// user's secret from stdin.
+	acl := knox.ACL{}
+	if *createACL != "" {
+		acl, err = parseACLFile(*createACL)
+		if err != nil {
+			return &ErrorStatus{err, false}
+		}
+	}
+	var data []byte
 	if *createTinkKeyset != "" {
 		templateName := *createTinkKeyset
 		err = obeyNamingRule(templateName, keyID)
@@ -55,8 +68,6 @@ func runCreate(cmd *Command, args []string) *ErrorStatus {
 	if err != nil {
 		return &ErrorStatus{err, false}
 	}
-	// TODO(devinlundberg): allow ACL to be entered as input
-	acl := knox.ACL{}
 	versionID, err := cli.CreateKey(keyID, data, acl)
 	if err != nil {
 		return &ErrorStatus{fmt.Errorf("error adding version: %w", err), true}

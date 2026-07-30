@@ -9,8 +9,8 @@ import (
 
 // KeyManager is the interface for logic related to managing keys.
 type KeyManager interface {
-	GetAllKeyIDs() ([]string, error)
-	GetUpdatedKeyIDs(map[string]string) ([]string, error)
+	GetAllKeyIDs(principal knox.Principal) ([]string, error)
+	GetUpdatedKeyIDs(principal knox.Principal, versions map[string]string) ([]string, error)
 	GetKey(id string, status knox.VersionStatus) (*knox.Key, error)
 	AddNewKey(*knox.Key) error
 	DeleteKey(id string) error
@@ -29,26 +29,36 @@ type keyManager struct {
 	db      keydb.DB
 }
 
-func (m *keyManager) GetAllKeyIDs() ([]string, error) {
+// GetAllKeyIDs returns the IDs of every key that principal has at least Read
+// access to. Key IDs are not public: they routinely encode team, project, or
+// vendor names (e.g. "stripe_prod_api_key"), which is exactly the kind of
+// information a secrets manager's own ACLs are meant to keep scoped to
+// authorized principals.
+func (m *keyManager) GetAllKeyIDs(principal knox.Principal) ([]string, error) {
 	keys, err := m.db.GetAll()
 	if err != nil {
 		return nil, err
 	}
 	output := []string{}
 	for _, k := range keys {
-		output = append(output, k.ID)
+		if principal.CanAccess(k.ACL, knox.Read) {
+			output = append(output, k.ID)
+		}
 	}
 	return output, nil
 }
 
-func (m *keyManager) GetUpdatedKeyIDs(versions map[string]string) ([]string, error) {
+// GetUpdatedKeyIDs returns the IDs, among the ones principal has at least Read
+// access to, whose version hash no longer matches the value the caller
+// already has cached.
+func (m *keyManager) GetUpdatedKeyIDs(principal knox.Principal, versions map[string]string) ([]string, error) {
 	keys, err := m.db.GetAll()
 	if err != nil {
 		return nil, err
 	}
 	output := []string{}
 	for _, k := range keys {
-		if v, ok := versions[k.ID]; ok && k.VersionHash != v {
+		if v, ok := versions[k.ID]; ok && k.VersionHash != v && principal.CanAccess(k.ACL, knox.Read) {
 			output = append(output, k.ID)
 		}
 	}

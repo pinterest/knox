@@ -76,7 +76,7 @@ func buildGoodResponse(data interface{}) ([]byte, error) {
 
 func buildErrorResponse(code int, data interface{}) ([]byte, error) {
 	resp := &Response{
-		Status:    "err",
+		Status:    "error",
 		Code:      code,
 		Host:      "test",
 		Timestamp: 1234567890,
@@ -295,7 +295,7 @@ func TestOnlyUnauthPrincipals(t *testing.T) {
 	if err != nil {
 		t.Fatalf("%s is not nil", err)
 	}
-	srv := buildServer(200, resp, func(r *http.Request) {})
+	srv := buildServer(http.StatusForbidden, resp, func(r *http.Request) {})
 	defer srv.Close()
 
 	// Create client with the user auth handler
@@ -318,6 +318,82 @@ func TestOnlyUnauthPrincipals(t *testing.T) {
 	// Check that we got the unauthorized error
 	if !errors.Is(err, errUnsuccessfulAuth) {
 		t.Fatalf("Expected errUnsuccessfulAuth but got: %v", err)
+	}
+	expectedMessage := errUnsuccessfulAuth.Error() + ": attempted auth types: [user]"
+	if err.Error() != expectedMessage {
+		t.Fatalf("Expected %q, got %q", expectedMessage, err)
+	}
+	var apiErr *APIError
+	if !errors.As(err, &apiErr) {
+		t.Fatalf("Expected APIError but got: %T", err)
+	}
+	if apiErr.StatusCode != http.StatusForbidden || apiErr.Code != UnauthorizedCode {
+		t.Fatalf("Unexpected APIError status/code: %d/%d", apiErr.StatusCode, apiErr.Code)
+	}
+}
+
+func TestInvalidResponseEnvelopeReturnsError(t *testing.T) {
+	tests := []struct {
+		name       string
+		statusCode int
+		response   Response
+	}{
+		{
+			name:       "invalid error status",
+			statusCode: http.StatusBadRequest,
+			response:   Response{Status: "invalid", Code: BadRequestDataCode, Message: "invalid response"},
+		},
+		{
+			name:       "success with error HTTP status",
+			statusCode: http.StatusBadRequest,
+			response:   Response{Status: "ok", Code: OKCode},
+		},
+		{
+			name:       "success with error Knox code",
+			statusCode: http.StatusOK,
+			response:   Response{Status: "ok", Code: BadRequestDataCode},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			body, err := json.Marshal(test.response)
+			if err != nil {
+				t.Fatal(err)
+			}
+			srv := buildServer(test.statusCode, body, func(r *http.Request) {})
+			defer srv.Close()
+
+			_, err = MockClient(srv.Listener.Addr().String(), "").GetKeys(nil)
+			if err == nil {
+				t.Fatal("Expected response validation error")
+			}
+			var apiErr *APIError
+			if errors.As(err, &apiErr) {
+				t.Fatalf("Expected malformed response to remain a real failure, got APIError")
+			}
+		})
+	}
+}
+
+func TestAPIErrorIncludesStatusAndCode(t *testing.T) {
+	resp, err := buildErrorResponse(KeyIdentifierDoesNotExistCode, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	srv := buildServer(http.StatusNotFound, resp, func(r *http.Request) {})
+	defer srv.Close()
+
+	_, err = MockClient(srv.Listener.Addr().String(), "").GetKey("missing")
+	var apiErr *APIError
+	if !errors.As(err, &apiErr) {
+		t.Fatalf("Expected APIError but got: %T", err)
+	}
+	if apiErr.StatusCode != http.StatusNotFound {
+		t.Fatalf("Expected HTTP status %d, got %d", http.StatusNotFound, apiErr.StatusCode)
+	}
+	if apiErr.Code != KeyIdentifierDoesNotExistCode {
+		t.Fatalf("Expected Knox code %d, got %d", KeyIdentifierDoesNotExistCode, apiErr.Code)
 	}
 }
 

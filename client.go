@@ -543,6 +543,7 @@ func (c *UncachedHTTPClient) getHTTPDataWithContext(ctx context.Context, method 
 
 	authRequestAttempted := false
 	attemptedAuthTypes := []string{}
+	var lastAuthError *APIError
 
 	for _, authHandler := range c.AuthHandlers {
 		// Check context before each auth handler attempt
@@ -595,19 +596,24 @@ func (c *UncachedHTTPClient) getHTTPDataWithContext(ctx context.Context, method 
 			default:
 			}
 
-			err = getHTTPResp(cli, r, resp)
+			statusCode, err := getHTTPResp(cli, r, resp)
 			if err != nil {
 				return err
 			}
 			if resp.Status != "ok" {
+				if resp.Status != "error" {
+					return fmt.Errorf("%s", resp.Message)
+				}
+				apiErr := &APIError{StatusCode: statusCode, Code: resp.Code, message: resp.Message}
 				if resp.Code == UnauthorizedCode || resp.Code == UnauthenticatedCode {
+					lastAuthError = apiErr
 					// If we get a 401 or 403, we need to continue to a different auth handler.
 					break
 				} else {
 					// If the failure is non authentication related, retry if we got a 500.
 					if (resp.Code != InternalServerErrorCode) || (i == maxRetryAttempts) {
 						// If we get a 500, we need to retry the request.
-						return fmt.Errorf("%s", resp.Message)
+						return apiErr
 					}
 
 					// Check context before sleeping
@@ -623,6 +629,9 @@ func (c *UncachedHTTPClient) getHTTPDataWithContext(ctx context.Context, method 
 					}
 				}
 			} else {
+				if statusCode < http.StatusOK || statusCode >= http.StatusMultipleChoices || resp.Code != OKCode {
+					return fmt.Errorf("invalid successful response: HTTP status %d, code %d", statusCode, resp.Code)
+				}
 				// If we got a successful response, we can return the data.
 				return nil
 			}
@@ -633,18 +642,23 @@ func (c *UncachedHTTPClient) getHTTPDataWithContext(ctx context.Context, method 
 		return errNoAuth
 	}
 
-	return fmt.Errorf("%w: attempted auth types: %v", errUnsuccessfulAuth, attemptedAuthTypes)
+	lastAuthError.message = fmt.Sprintf("%s: attempted auth types: %v", errUnsuccessfulAuth, attemptedAuthTypes)
+	lastAuthError.cause = errUnsuccessfulAuth
+	return lastAuthError
 }
 
-func getHTTPResp(cli HTTP, r *http.Request, resp *Response) error {
+func getHTTPResp(cli HTTP, r *http.Request, resp *Response) (int, error) {
 	w, err := cli.Do(r)
 	if err != nil {
-		return err
+		return 0, err
 	}
 	defer w.Body.Close()
 
 	decoder := json.NewDecoder(w.Body)
-	return decoder.Decode(resp)
+	if err := decoder.Decode(resp); err != nil {
+		return w.StatusCode, err
+	}
+	return w.StatusCode, nil
 }
 
 // MockClient builds a client that ignores certs and talks to the given host.

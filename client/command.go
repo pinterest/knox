@@ -32,9 +32,11 @@
 package client
 
 import (
+	"errors"
 	"flag"
 	"fmt"
 	"io"
+	"net/http"
 	"os"
 	"strings"
 	"sync"
@@ -116,18 +118,8 @@ func Run(
 				args = cmd.Flag.Args()
 			}
 			errorStatus := cmd.Run(cmd, args)
-			var metricsKey string
-			if errorStatus != nil {
-				if errorStatus.serverError {
-					metricsKey = "failure"
-				} else {
-					metricsKey = "ignored_failure"
-				}
-			} else {
-				metricsKey = "success"
-			}
 			clientInvokeMetrics(map[string]string{
-				"metrics_key": metricsKey,
+				"metrics_key": metricsKeyForErrorStatus(errorStatus),
 				"method_name": fmt.Sprintf("client_%s", cmd.Name()),
 			})
 			if errorStatus != nil {
@@ -199,6 +191,39 @@ type Command struct {
 type ErrorStatus struct {
 	error
 	serverError bool
+}
+
+var ignoredAPIErrorStatuses = map[int]int{
+	knox.NoKeyIDCode:                   http.StatusBadRequest,
+	knox.KeyIdentifierExistsCode:       http.StatusBadRequest,
+	knox.NoKeyDataCode:                 http.StatusBadRequest,
+	knox.BadRequestDataCode:            http.StatusBadRequest,
+	knox.BadKeyFormatCode:              http.StatusBadRequest,
+	knox.BadPrincipalIdentifier:        http.StatusBadRequest,
+	knox.UnauthenticatedCode:           http.StatusUnauthorized,
+	knox.UnauthorizedCode:              http.StatusForbidden,
+	knox.KeyVersionDoesNotExistCode:    http.StatusNotFound,
+	knox.KeyIdentifierDoesNotExistCode: http.StatusNotFound,
+	knox.NotFoundCode:                  http.StatusNotFound,
+}
+
+func metricsKeyForErrorStatus(errorStatus *ErrorStatus) string {
+	if errorStatus == nil {
+		return "success"
+	}
+	if !errorStatus.serverError || isIgnoredAPIError(errorStatus.error) {
+		return "ignored_failure"
+	}
+	return "failure"
+}
+
+func isIgnoredAPIError(err error) bool {
+	var apiErr *knox.APIError
+	if !errors.As(err, &apiErr) {
+		return false
+	}
+	statusCode, ok := ignoredAPIErrorStatuses[apiErr.Code]
+	return ok && statusCode == apiErr.StatusCode
 }
 
 // Name returns the command's name: the first word in the usage line.

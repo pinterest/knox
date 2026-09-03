@@ -119,14 +119,14 @@ func getKeysHandler(m KeyManager, principal knox.Principal, parameters map[strin
 
 	// Get necessary data based on parameters
 	if len(keyMap) == 0 {
-		keys, err := m.GetAllKeyIDs()
+		keys, err := m.GetAllKeyIDs(principal)
 		if err != nil {
 			return nil, errF(knox.InternalServerErrorCode, err.Error())
 		}
 		return keys, nil
 	}
 
-	keys, err := m.GetUpdatedKeyIDs(keyM)
+	keys, err := m.GetUpdatedKeyIDs(principal, keyM)
 	if err != nil {
 		return nil, errF(knox.InternalServerErrorCode, err.Error())
 	}

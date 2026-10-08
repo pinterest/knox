@@ -47,7 +47,7 @@ func getURINamesFromSANExtension(sanExtension []byte) (uris []string, err error)
 		if err != nil {
 			return uris, err
 		}
-		if v.Tag == 6 {
+		if v.Class == asn1.ClassContextSpecific && v.Tag == 6 {
 			uris = append(uris, string(v.Bytes))
 		}
 	}

@@ -33,7 +33,7 @@ func (p mockPrincipal) GetID() string {
 
 func TestGetAllKeyIDs(t *testing.T) {
 	m, u, acl := GetMocks()
-	keys, err := m.GetAllKeyIDs()
+	keys, err := m.GetAllKeyIDs(u)
 	if err != nil {
 		t.Fatalf("%s is not nil", err)
 	}
@@ -47,7 +47,7 @@ func TestGetAllKeyIDs(t *testing.T) {
 		t.Fatalf("%s is not nil", err)
 	}
 
-	keys, err = m.GetAllKeyIDs()
+	keys, err = m.GetAllKeyIDs(u)
 	if err != nil {
 		t.Fatal(err.Error())
 	}
@@ -65,7 +65,7 @@ func TestGetAllKeyIDs(t *testing.T) {
 		t.Fatalf("%s is not nil", err)
 	}
 
-	keys, err = m.GetAllKeyIDs()
+	keys, err = m.GetAllKeyIDs(u)
 	if err != nil {
 		t.Fatal(err.Error())
 	}
@@ -89,7 +89,7 @@ func TestGetAllKeyIDs(t *testing.T) {
 	if err != nil {
 		t.Fatalf("%s is not nil", err)
 	}
-	keys, err = m.GetAllKeyIDs()
+	keys, err = m.GetAllKeyIDs(u)
 	if err != nil {
 		t.Fatal(err.Error())
 	}
@@ -104,7 +104,7 @@ func TestGetAllKeyIDs(t *testing.T) {
 
 func TestGetUpdatedKeyIDs(t *testing.T) {
 	m, u, acl := GetMocks()
-	keys, err := m.GetUpdatedKeyIDs(map[string]string{})
+	keys, err := m.GetUpdatedKeyIDs(u, map[string]string{})
 	if err != nil {
 		t.Fatalf("%s is not nil", err)
 	}
@@ -118,7 +118,7 @@ func TestGetUpdatedKeyIDs(t *testing.T) {
 		t.Fatalf("%s is not nil", err)
 	}
 
-	keys, err = m.GetUpdatedKeyIDs(map[string]string{key1.ID: "NOT_THE_HASH"})
+	keys, err = m.GetUpdatedKeyIDs(u, map[string]string{key1.ID: "NOT_THE_HASH"})
 	if err != nil {
 		t.Fatal(err.Error())
 	}
@@ -130,7 +130,7 @@ func TestGetUpdatedKeyIDs(t *testing.T) {
 		t.Fatal("Unexpected # of keys in get all keys response")
 	}
 
-	keys, err = m.GetUpdatedKeyIDs(map[string]string{key1.ID: key1.VersionHash})
+	keys, err = m.GetUpdatedKeyIDs(u, map[string]string{key1.ID: key1.VersionHash})
 	if len(keys) != 0 {
 		t.Fatal("database should have no keys in it")
 	}
@@ -141,7 +141,7 @@ func TestGetUpdatedKeyIDs(t *testing.T) {
 		t.Fatalf("%s is not nil", err)
 	}
 
-	keys, err = m.GetUpdatedKeyIDs(map[string]string{key2.ID: "NOT_THE_HASH"})
+	keys, err = m.GetUpdatedKeyIDs(u, map[string]string{key2.ID: "NOT_THE_HASH"})
 	if err != nil {
 		t.Fatal(err.Error())
 	}
@@ -153,7 +153,7 @@ func TestGetUpdatedKeyIDs(t *testing.T) {
 		t.Fatal("Unexpected # of keys in get all keys response")
 	}
 
-	keys, err = m.GetUpdatedKeyIDs(map[string]string{key2.ID: "NOT_THE_HASH", key1.ID: "NOT_THE_HASH"})
+	keys, err = m.GetUpdatedKeyIDs(u, map[string]string{key2.ID: "NOT_THE_HASH", key1.ID: "NOT_THE_HASH"})
 	if len(keys) != 2 {
 		t.Fatalf("Expect 2 keys not %d", len(keys))
 	}
@@ -169,7 +169,7 @@ func TestGetUpdatedKeyIDs(t *testing.T) {
 		t.Fatal("Unexpected key ID returned")
 	}
 
-	keys, err = m.GetUpdatedKeyIDs(map[string]string{key2.ID: key2.VersionHash, key1.ID: "NOT_THE_HASH"})
+	keys, err = m.GetUpdatedKeyIDs(u, map[string]string{key2.ID: key2.VersionHash, key1.ID: "NOT_THE_HASH"})
 	if len(keys) != 1 {
 		t.Fatalf("Expect 1 key not %d", len(keys))
 	}
@@ -177,7 +177,7 @@ func TestGetUpdatedKeyIDs(t *testing.T) {
 		t.Fatalf("%s does not match %s", keys[0], key1.ID)
 	}
 
-	keys, err = m.GetUpdatedKeyIDs(map[string]string{key2.ID: key2.VersionHash, key1.ID: key1.VersionHash})
+	keys, err = m.GetUpdatedKeyIDs(u, map[string]string{key2.ID: key2.VersionHash, key1.ID: key1.VersionHash})
 	if len(keys) != 0 {
 		t.Fatal("expected no keys")
 	}

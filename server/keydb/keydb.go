@@ -324,10 +324,10 @@ func (db *SQLDB) Update(key *DBKey) error {
 	}
 	if affected == 0 {
 		rs, err := db.getStmt.Query(key.ID)
-		defer rs.Close()
 		if err != nil {
 			return err
 		}
+		defer rs.Close()
 		if !rs.Next() {
 			return knox.ErrKeyIDNotFound
 		}

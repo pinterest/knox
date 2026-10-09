@@ -60,14 +60,9 @@ func runUpdateAccess(cmd *Command, args []string) *ErrorStatus {
 			return &ErrorStatus{fmt.Errorf("access takes one argument when used with --acl; see 'knox help access'"), false}
 		}
 		keyID := args[0]
-		b, err := os.ReadFile(*updateAccessACL)
+		acl, err := parseACLFile(*updateAccessACL)
 		if err != nil {
-			return &ErrorStatus{fmt.Errorf("could not read acl file: %w", err), false}
-		}
-		acl := []knox.Access{}
-		err = json.Unmarshal(b, &acl)
-		if err != nil {
-			return &ErrorStatus{fmt.Errorf("could not decode access list properly: %w", err), false}
+			return &ErrorStatus{err, false}
 		}
 		err = cli.PutAccess(keyID, acl...)
 		if err != nil {
@@ -117,4 +112,19 @@ func runUpdateAccess(cmd *Command, args []string) *ErrorStatus {
 	}
 	fmt.Println("Successfully updated Access")
 	return nil
+}
+
+// parseACLFile reads a JSON formatted list of access rules from the file at
+// the given path.
+func parseACLFile(path string) (knox.ACL, error) {
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("could not read acl file: %w", err)
+	}
+	acl := knox.ACL{}
+	err = json.Unmarshal(b, &acl)
+	if err != nil {
+		return nil, fmt.Errorf("could not decode access list properly: %w", err)
+	}
+	return acl, nil
 }

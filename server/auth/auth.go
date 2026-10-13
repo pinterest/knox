@@ -181,10 +181,11 @@ func (p *SpiffeProvider) Authenticate(token string, r *http.Request) (knox.Princ
 		return nil, err
 	}
 
-	// Extract the Spiffe URI extension from the certificate
-	spiffeURIs, err := GetURINamesFromExtensions(&cert.Extensions)
-	if err != nil {
-		return nil, err
+	// Use the URI SANs parsed by crypto/x509 so knox agrees with the CA and
+	// every other standard parser about which identities a certificate holds.
+	var spiffeURIs []string
+	for _, u := range cert.URIs {
+		spiffeURIs = append(spiffeURIs, u.String())
 	}
 
 	return spiffeToPrincipal(spiffeURIs)

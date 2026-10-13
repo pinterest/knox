@@ -47,7 +47,7 @@ func getURINamesFromSANExtension(sanExtension []byte) (uris []string, err error)
 		if err != nil {
 			return uris, err
 		}
-		if v.Class == asn1.ClassContextSpecific && v.Tag == 6 {
+		if v.Class == asn1.ClassContextSpecific && v.Tag == 6 && !v.IsCompound {
 			uris = append(uris, string(v.Bytes))
 		}
 	}
@@ -56,6 +56,9 @@ func getURINamesFromSANExtension(sanExtension []byte) (uris []string, err error)
 }
 
 // GetURINamesFromExtensions retrieves URIs from the SAN extension of a slice of extensions
+//
+// Deprecated: use the URIs field of x509.Certificate, which crypto/x509
+// populates only for valid uniformResourceIdentifier names.
 func GetURINamesFromExtensions(extensions *[]pkix.Extension) (uris []string, err error) {
 	for _, ext := range *extensions {
 		if ext.Id.Equal(oidExtensionSubjectAltName) {
